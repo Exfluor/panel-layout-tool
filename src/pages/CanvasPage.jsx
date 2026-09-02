@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import ComponentLibrarySidebar from '../components/ComponentLibrarySidebar'
 import PanelCanvas from '../components/PanelCanvas'
+import PartsListPanel from '../components/PartsListPanel'
 import SelectionInfoBar from '../components/SelectionInfoBar'
 import { useCanvasDnd } from '../hooks/useCanvasDnd'
 import { useElementSize } from '../hooks/useElementSize'
 import { useLocalStorageState } from '../hooks/useLocalStorageState'
 import { usePanelLayout } from '../hooks/usePanelLayout'
 import { defaultComponents } from '../lib/defaultComponents'
+import { computePartsList } from '../lib/partsList'
 
 const PADDING = 32
 
@@ -24,6 +26,7 @@ export default function CanvasPage() {
   const layout = usePanelLayout()
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true)
   const [useFraction, setUseFraction] = useState(true)
+  const [partNotes, setPartNotes] = useState({})
 
   const panelWidth = state?.panelWidth ?? 0
   const panelHeight = state?.panelHeight ?? 0
@@ -39,6 +42,11 @@ export default function CanvasPage() {
 
   const placedArea = layout.placedComponents.reduce((sum, c) => sum + c.width * c.height, 0)
   const freeArea = panelWidth * panelHeight - placedArea
+  const partsList = computePartsList(layout.placedComponents)
+
+  function handleNotesChange(key, text) {
+    setPartNotes((prev) => ({ ...prev, [key]: text }))
+  }
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -152,6 +160,8 @@ export default function CanvasPage() {
             onGroup={layout.groupSelected}
             onUngroup={layout.ungroupSelected}
           />
+
+          <PartsListPanel partsList={partsList} notes={partNotes} onNotesChange={handleNotesChange} />
         </div>
       </div>
 

@@ -1,0 +1,146 @@
+import { PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { useRef, useState } from 'react'
+import { getEffectiveSize } from '../lib/geometry'
+import { computeSnappedPosition } from '../lib/snapping'
+
+const SNAP_THRESHOLD_PX = 8
+
+function toBounds(component) {
+  const { width, height } = getEffectiveSize(component)
+  return { id: component.id, x: component.x, y: component.y, width, height, isRail: component.isRail }
+}
+
+export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
+  const [dragGhost, setDragGhost] = useState(null)
+  const [activeLibraryComponent, setActiveLibraryComponent] = useState(null)
+  const dragOriginRef = useRef(null)
+
+  function getCanvasRect() {
+    return canvasRef.current?.getBoundingClientRect() ?? null
+  }
+
+  function pointerToInches(clientX, clientY) {
+    const rect = getCanvasRect()
+    if (!rect || !scale) return { x: 0, y: 0 }
+    return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale }
+  }
+
+  function handleDragStart(event) {
+    const data = event.active.data.current
+    const activatorEvent = event.activatorEvent
+    const pointerStart = { x: activatorEvent.clientX, y: activatorEvent.clientY }
+
+    if (data.type === 'library') {
+      dragOriginRef.current = { type: 'library', component: data.component, pointerStart }
+      setActiveLibraryComponent(data.component)
+      return
+    }
+
+    if (data.type === 'placed') {
+      const primary = layout.placedComponents.find((c) => c.id === data.id)
+      if (!primary) return
+      const groupIds = primary.groupId
+        ? layout.placedComponents.filter((c) => c.groupId === primary.groupId).map((c) => c.id)
+        : [primary.id]
+      const origins = {}
+      groupIds.forEach((id) => {
+        const c = layout.placedComponents.find((cc) => cc.id === id)
+        origins[id] = { x: c.x, y: c.y }
+      })
+      dragOriginRef.current = { type: 'placed', primaryId: primary.id, groupIds, origins, pointerStart }
+    }
+  }
+
+  function computeCandidate(event) {
+    const origin = dragOriginRef.current
+    if (!origin || !scale) return null
+    const threshold = SNAP_THRESHOLD_PX / scale
+
+    if (origin.type === 'library') {
+      const pointer = { x: origin.pointerStart.x + event.delta.x, y: origin.pointerStart.y + event.delta.y }
+      const inches = pointerToInches(pointer.x, pointer.y)
+      const { width, height } = origin.component
+      const rawX = inches.x - width / 2
+      const rawY = inches.y - height / 2
+      const others = layout.placedComponents.map(toBounds)
+      const snapped = computeSnappedPosition({ x: rawX, y: rawY, width, height, others, panelWidth, panelHeight, threshold })
+      return {
+        type: 'new',
+        component: origin.component,
+        x: snapped.x,
+        y: snapped.y,
+        width,
+        height,
+        pointer,
+        snappedRailId: snapped.snappedRailId,
+      }
+    }
+
+    if (origin.type === 'placed') {
+      const deltaX = event.delta.x / scale
+      const deltaY = event.delta.y / scale
+      const primaryOrigin = origin.origins[origin.primaryId]
+      const primary = layout.placedComponents.find((c) => c.id === origin.primaryId)
+      const { width, height } = getEffectiveSize(primary)
+      const rawX = primaryOrigin.x + deltaX
+      const rawY = primaryOrigin.y + deltaY
+      const others = layout.placedComponents
+        .filter((c) => !origin.groupIds.includes(c.id))
+        .map(toBounds)
+      const snapped = computeSnappedPosition({ x: rawX, y: rawY, width, height, others, panelWidth, panelHeight, threshold })
+      return {
+        type: 'move',
+        groupIds: origin.groupIds,
+        deltaX: snapped.x - primaryOrigin.x,
+        deltaY: snapped.y - primaryOrigin.y,
+        snappedRailId: snapped.snappedRailId,
+      }
+    }
+
+    return null
+  }
+
+  function handleDragMove(event) {
+    setDragGhost(computeCandidate(event))
+  }
+
+  function handleDragEnd(event) {
+    const candidate = computeCandidate(event)
+
+    if (candidate?.type === 'new') {
+      const rect = getCanvasRect()
+      const droppedOnCanvas =
+        rect &&
+        candidate.pointer.x >= rect.left &&
+        candidate.pointer.x <= rect.right &&
+        candidate.pointer.y >= rect.top &&
+        candidate.pointer.y <= rect.bottom
+      if (droppedOnCanvas) {
+        layout.placeNew(candidate.component, candidate.x, candidate.y)
+      }
+    } else if (candidate?.type === 'move') {
+      layout.moveGroup(candidate.groupIds, candidate.deltaX, candidate.deltaY)
+    }
+
+    setDragGhost(null)
+    setActiveLibraryComponent(null)
+    dragOriginRef.current = null
+  }
+
+  function handleDragCancel() {
+    setDragGhost(null)
+    setActiveLibraryComponent(null)
+    dragOriginRef.current = null
+  }
+
+  return {
+    sensors,
+    dragGhost,
+    activeLibraryComponent,
+    handleDragStart,
+    handleDragMove,
+    handleDragEnd,
+    handleDragCancel,
+  }
+}

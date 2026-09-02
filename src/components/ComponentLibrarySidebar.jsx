@@ -1,6 +1,7 @@
+import { useDraggable } from '@dnd-kit/core'
 import { useState } from 'react'
 
-const emptyDraft = { name: '', width: '', height: '', color: '#3b82f6' }
+const emptyDraft = { name: '', width: '', height: '', color: '#3b82f6', isRail: false }
 
 function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
   return (
@@ -36,6 +37,14 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
           className="w-1/2 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
         />
       </div>
+      <label className="flex items-center gap-1.5 text-xs text-neutral-300">
+        <input
+          type="checkbox"
+          checked={draft.isRail}
+          onChange={(e) => onChange({ ...draft, isRail: e.target.checked })}
+        />
+        Mounting rail (e.g. DIN rail) &mdash; parts placed on it won't flag as overlapping
+      </label>
       <div className="flex items-center gap-2">
         <input
           type="color"
@@ -66,6 +75,10 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
 function ComponentRow({ component, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `library:${component.id}`,
+    data: { type: 'library', component },
+  })
 
   function startEdit() {
     setDraft({
@@ -73,6 +86,7 @@ function ComponentRow({ component, onUpdate, onDelete }) {
       width: String(component.width),
       height: String(component.height),
       color: component.color,
+      isRail: component.isRail ?? false,
     })
     setEditing(true)
   }
@@ -83,7 +97,13 @@ function ComponentRow({ component, onUpdate, onDelete }) {
     const height = Number(draft.height)
     if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
 
-    onUpdate(component.id, { name: draft.name.trim(), width, height, color: draft.color })
+    onUpdate(component.id, {
+      name: draft.name.trim(),
+      width,
+      height,
+      color: draft.color,
+      isRail: draft.isRail,
+    })
     setEditing(false)
   }
 
@@ -100,13 +120,26 @@ function ComponentRow({ component, onUpdate, onDelete }) {
   }
 
   return (
-    <div className="group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-neutral-800">
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={`group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-neutral-800 ${isDragging ? 'opacity-40' : ''}`}
+      style={{ cursor: 'grab', touchAction: 'none' }}
+    >
       <span
         className="h-3.5 w-3.5 shrink-0 rounded-sm border border-black/20"
         style={{ backgroundColor: component.color }}
       />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm">{component.name}</div>
+        <div className="truncate text-sm">
+          {component.name}
+          {component.isRail && (
+            <span className="ml-1.5 rounded bg-neutral-700 px-1 py-0.5 text-[10px] font-medium text-neutral-300">
+              RAIL
+            </span>
+          )}
+        </div>
         <div className="text-xs text-neutral-400">
           {component.width}&Prime; &times; {component.height}&Prime;
         </div>
@@ -143,7 +176,7 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
     const height = Number(draft.height)
     if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
 
-    onAdd({ name: draft.name.trim(), width, height, color: draft.color })
+    onAdd({ name: draft.name.trim(), width, height, color: draft.color, isRail: draft.isRail })
     setDraft(emptyDraft)
     setAdding(false)
   }

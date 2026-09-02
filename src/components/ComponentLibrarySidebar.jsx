@@ -1,0 +1,195 @@
+import { useState } from 'react'
+
+const emptyDraft = { name: '', width: '', height: '', color: '#3b82f6' }
+
+function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="space-y-2 rounded border border-neutral-600 bg-neutral-900 p-2"
+    >
+      <input
+        type="text"
+        placeholder="Name"
+        value={draft.name}
+        onChange={(e) => onChange({ ...draft, name: e.target.value })}
+        className="w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
+        autoFocus
+      />
+      <div className="flex gap-2">
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Width (in)"
+          value={draft.width}
+          onChange={(e) => onChange({ ...draft, width: e.target.value })}
+          className="w-1/2 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
+        />
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Height (in)"
+          value={draft.height}
+          onChange={(e) => onChange({ ...draft, height: e.target.value })}
+          className="w-1/2 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={draft.color}
+          onChange={(e) => onChange({ ...draft, color: e.target.value })}
+          className="h-7 w-9 shrink-0 cursor-pointer rounded border border-neutral-600 bg-neutral-800"
+        />
+        <div className="flex flex-1 gap-1.5">
+          <button
+            type="submit"
+            className="flex-1 rounded bg-blue-600 py-1 text-sm font-medium hover:bg-blue-500"
+          >
+            {submitLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded border border-neutral-600 py-1 text-sm hover:bg-neutral-800"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </form>
+  )
+}
+
+function ComponentRow({ component, onUpdate, onDelete }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(null)
+
+  function startEdit() {
+    setDraft({
+      name: component.name,
+      width: String(component.width),
+      height: String(component.height),
+      color: component.color,
+    })
+    setEditing(true)
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    const width = Number(draft.width)
+    const height = Number(draft.height)
+    if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
+
+    onUpdate(component.id, { name: draft.name.trim(), width, height, color: draft.color })
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <ComponentForm
+        draft={draft}
+        onChange={setDraft}
+        onSubmit={handleSubmit}
+        onCancel={() => setEditing(false)}
+        submitLabel="Save"
+      />
+    )
+  }
+
+  return (
+    <div className="group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-neutral-800">
+      <span
+        className="h-3.5 w-3.5 shrink-0 rounded-sm border border-black/20"
+        style={{ backgroundColor: component.color }}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm">{component.name}</div>
+        <div className="text-xs text-neutral-400">
+          {component.width}&Prime; &times; {component.height}&Prime;
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={startEdit}
+          className="rounded px-1.5 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
+          title="Edit"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(component.id)}
+          className="rounded px-1.5 py-0.5 text-xs text-red-400 hover:bg-neutral-700"
+          title="Delete"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDelete }) {
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState(emptyDraft)
+
+  function handleAddSubmit(e) {
+    e.preventDefault()
+    const width = Number(draft.width)
+    const height = Number(draft.height)
+    if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
+
+    onAdd({ name: draft.name.trim(), width, height, color: draft.color })
+    setDraft(emptyDraft)
+    setAdding(false)
+  }
+
+  return (
+    <aside className="flex w-72 shrink-0 flex-col border-r border-neutral-700 bg-neutral-800/60">
+      <div className="flex items-center justify-between border-b border-neutral-700 px-3 py-2.5">
+        <h2 className="text-sm font-semibold">Components</h2>
+        {!adding && (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(emptyDraft)
+              setAdding(true)
+            }}
+            className="rounded bg-blue-600 px-2 py-1 text-xs font-medium hover:bg-blue-500"
+          >
+            + Add
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 space-y-1 overflow-y-auto p-2">
+        {adding && (
+          <ComponentForm
+            draft={draft}
+            onChange={setDraft}
+            onSubmit={handleAddSubmit}
+            onCancel={() => setAdding(false)}
+            submitLabel="Add"
+          />
+        )}
+        {library.map((component) => (
+          <ComponentRow
+            key={component.id}
+            component={component}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+          />
+        ))}
+        {library.length === 0 && !adding && (
+          <p className="px-2 py-4 text-center text-xs text-neutral-500">
+            No components yet. Add one to get started.
+          </p>
+        )}
+      </div>
+    </aside>
+  )
+}

@@ -1,5 +1,28 @@
 import { getEffectiveSize } from '../lib/geometry'
 import PlacedComponent from './PlacedComponent'
+import RailDimensionGuides from './RailDimensionGuides'
+
+function getMeasuredRails(placedComponents, selectedIds, dragGhost) {
+  if (dragGhost?.type === 'new' && dragGhost.component.isRail) {
+    return [{ x: dragGhost.x, y: dragGhost.y, width: dragGhost.width, height: dragGhost.height }]
+  }
+
+  if (dragGhost?.type === 'move') {
+    return placedComponents
+      .filter((c) => c.isRail && dragGhost.groupIds.includes(c.id))
+      .map((c) => {
+        const { width, height } = getEffectiveSize(c)
+        return { x: c.x + dragGhost.deltaX, y: c.y + dragGhost.deltaY, width, height }
+      })
+  }
+
+  return placedComponents
+    .filter((c) => c.isRail && selectedIds.has(c.id))
+    .map((c) => {
+      const { width, height } = getEffectiveSize(c)
+      return { x: c.x, y: c.y, width, height }
+    })
+}
 
 export default function PanelCanvas({
   canvasRef,
@@ -12,8 +35,11 @@ export default function PanelCanvas({
   dragGhost,
   onSelect,
   onClearSelection,
+  useFraction,
 }) {
   if (scale <= 0) return null
+
+  const measuredRails = getMeasuredRails(placedComponents, selectedIds, dragGhost)
 
   return (
     <div
@@ -78,6 +104,23 @@ export default function PanelCanvas({
             backgroundColor: dragGhost.component.color,
             opacity: 0.5,
           }}
+        />
+      )}
+
+      {measuredRails.map((rail, i) => (
+        <RailDimensionGuides
+          key={i}
+          rail={rail}
+          panelWidth={panelWidth}
+          scale={scale}
+          useFraction={useFraction}
+        />
+      ))}
+
+      {measuredRails.some((rail) => Math.abs(rail.y + rail.height / 2 - panelHeight / 2) < 0.02) && (
+        <div
+          className="pointer-events-none absolute right-0 left-0 border-t border-dashed border-amber-400"
+          style={{ top: (panelHeight / 2) * scale }}
         />
       )}
     </div>

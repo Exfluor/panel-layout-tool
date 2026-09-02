@@ -1,5 +1,5 @@
 import { DndContext, DragOverlay } from '@dnd-kit/core'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import ComponentLibrarySidebar from '../components/ComponentLibrarySidebar'
 import PanelCanvas from '../components/PanelCanvas'
@@ -22,6 +22,8 @@ export default function CanvasPage() {
     defaultComponents,
   )
   const layout = usePanelLayout()
+  const [gridSnapEnabled, setGridSnapEnabled] = useState(true)
+  const [useFraction, setUseFraction] = useState(true)
 
   const panelWidth = state?.panelWidth ?? 0
   const panelHeight = state?.panelHeight ?? 0
@@ -33,7 +35,7 @@ export default function CanvasPage() {
       ? Math.min(availableWidth / panelWidth, availableHeight / panelHeight)
       : 0
 
-  const dnd = useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout })
+  const dnd = useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout, gridSnapEnabled })
 
   const placedArea = layout.placedComponents.reduce((sum, c) => sum + c.width * c.height, 0)
   const freeArea = panelWidth * panelHeight - placedArea
@@ -101,6 +103,22 @@ export default function CanvasPage() {
                 {freeArea.toFixed(1)} in&sup2;
               </div>
             </div>
+            <label className="flex items-center gap-1.5 text-sm text-neutral-300">
+              <input
+                type="checkbox"
+                checked={gridSnapEnabled}
+                onChange={(e) => setGridSnapEnabled(e.target.checked)}
+              />
+              Snap to 1/8&Prime;
+            </label>
+            <label className="flex items-center gap-1.5 text-sm text-neutral-300">
+              <input
+                type="checkbox"
+                checked={useFraction}
+                onChange={(e) => setUseFraction(e.target.checked)}
+              />
+              Show as fraction
+            </label>
             <button
               type="button"
               onClick={() => navigate('/')}
@@ -122,6 +140,7 @@ export default function CanvasPage() {
               dragGhost={dnd.dragGhost}
               onSelect={layout.select}
               onClearSelection={layout.clearSelection}
+              useFraction={useFraction}
             />
           </div>
 

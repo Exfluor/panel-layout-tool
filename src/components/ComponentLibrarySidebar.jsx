@@ -21,7 +21,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
         <input
           type="number"
           min="0"
-          step="0.01"
+          step="any"
           placeholder="Width (in)"
           value={draft.width}
           onChange={(e) => onChange({ ...draft, width: e.target.value })}
@@ -30,7 +30,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
         <input
           type="number"
           min="0"
-          step="0.01"
+          step="any"
           placeholder="Height (in)"
           value={draft.height}
           onChange={(e) => onChange({ ...draft, height: e.target.value })}

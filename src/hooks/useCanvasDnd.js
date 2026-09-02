@@ -10,7 +10,7 @@ function toBounds(component) {
   return { id: component.id, x: component.x, y: component.y, width, height, isRail: component.isRail }
 }
 
-export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout }) {
+export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout, gridSnapEnabled }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
   const [dragGhost, setDragGhost] = useState(null)
   const [activeLibraryComponent, setActiveLibraryComponent] = useState(null)
@@ -63,8 +63,23 @@ export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout
       const { width, height } = origin.component
       const rawX = inches.x - width / 2
       const rawY = inches.y - height / 2
-      const others = layout.placedComponents.map(toBounds)
-      const snapped = computeSnappedPosition({ x: rawX, y: rawY, width, height, others, panelWidth, panelHeight, threshold })
+      // A rail is a structural element: only other rails (plus the panel walls/center,
+      // always included) should pull its position — parts mounted on it shouldn't.
+      const others = layout.placedComponents
+        .filter((c) => !origin.component.isRail || c.isRail)
+        .map(toBounds)
+      const snapped = computeSnappedPosition({
+        x: rawX,
+        y: rawY,
+        width,
+        height,
+        others,
+        panelWidth,
+        panelHeight,
+        threshold,
+        centerInPanel: Boolean(origin.component.isRail),
+        gridSnapEnabled,
+      })
       return {
         type: 'new',
         component: origin.component,
@@ -87,8 +102,20 @@ export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout
       const rawY = primaryOrigin.y + deltaY
       const others = layout.placedComponents
         .filter((c) => !origin.groupIds.includes(c.id))
+        .filter((c) => !primary.isRail || c.isRail)
         .map(toBounds)
-      const snapped = computeSnappedPosition({ x: rawX, y: rawY, width, height, others, panelWidth, panelHeight, threshold })
+      const snapped = computeSnappedPosition({
+        x: rawX,
+        y: rawY,
+        width,
+        height,
+        others,
+        panelWidth,
+        panelHeight,
+        threshold,
+        centerInPanel: Boolean(primary.isRail),
+        gridSnapEnabled,
+      })
       return {
         type: 'move',
         groupIds: origin.groupIds,

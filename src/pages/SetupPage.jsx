@@ -36,7 +36,7 @@ export default function SetupPage() {
           <input
             type="number"
             min="0"
-            step="0.01"
+            step="any"
             value={width}
             onChange={(e) => setWidth(e.target.value)}
             className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-3 py-2 outline-none focus:border-blue-500"
@@ -49,7 +49,7 @@ export default function SetupPage() {
           <input
             type="number"
             min="0"
-            step="0.01"
+            step="any"
             value={height}
             onChange={(e) => setHeight(e.target.value)}
             className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-3 py-2 outline-none focus:border-blue-500"

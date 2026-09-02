@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import ComponentLibrarySidebar from '../components/ComponentLibrarySidebar'
 import PanelCanvas from '../components/PanelCanvas'
 import PartsListPanel from '../components/PartsListPanel'
+import SaveProjectDialog from '../components/SaveProjectDialog'
 import SelectionInfoBar from '../components/SelectionInfoBar'
 import { useCanvasDnd } from '../hooks/useCanvasDnd'
 import { useElementSize } from '../hooks/useElementSize'
@@ -19,14 +20,32 @@ export default function CanvasPage() {
   const navigate = useNavigate()
   const [containerRef, containerSize] = useElementSize()
   const canvasRef = useRef(null)
-  const [library, setLibrary] = useLocalStorageState(
+
+  const [projects, setProjects] = useLocalStorageState('panelBuilder.projects', [])
+  const project = state?.projectId ? projects.find((p) => p.id === state.projectId) : null
+
+  // A loaded project owns its own library snapshot (session-scoped, only
+  // written back into the project record on Save). A brand new panel falls
+  // back to the persisted global default library, which itself becomes the
+  // starting point for the next new panel too.
+  const [globalLibrary, setGlobalLibrary] = useLocalStorageState(
     'panelBuilder.componentLibrary',
     defaultComponents,
   )
-  const layout = usePanelLayout()
+  const [sessionLibrary, setSessionLibrary] = useState(() => project?.componentLibrary ?? defaultComponents)
+  const library = project ? sessionLibrary : globalLibrary
+  const setLibrary = project ? setSessionLibrary : setGlobalLibrary
+
+  const [partNotes, setPartNotes] = useState(() => project?.partNotes ?? {})
+  const layout = usePanelLayout(project?.placedComponents ?? [])
+
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true)
   const [useFraction, setUseFraction] = useState(true)
-  const [partNotes, setPartNotes] = useState({})
+
+  const [currentProjectId, setCurrentProjectId] = useState(project?.id ?? null)
+  const [currentProjectName, setCurrentProjectName] = useState(project?.name ?? '')
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
 
   const panelWidth = state?.panelWidth ?? 0
   const panelHeight = state?.panelHeight ?? 0
@@ -76,6 +95,46 @@ export default function CanvasPage() {
     setLibrary((prev) => prev.filter((c) => c.id !== id))
   }
 
+  function saveAs(name) {
+    const id = currentProjectId ?? crypto.randomUUID()
+    const now = new Date().toISOString()
+
+    setProjects((prev) => {
+      const existingIndex = prev.findIndex((p) => p.id === id)
+      const record = {
+        id,
+        name,
+        panelWidth,
+        panelHeight,
+        placedComponents: layout.placedComponents,
+        componentLibrary: library ?? defaultComponents,
+        partNotes,
+        createdAt: existingIndex >= 0 ? prev[existingIndex].createdAt : now,
+        updatedAt: now,
+      }
+      if (existingIndex >= 0) {
+        const next = [...prev]
+        next[existingIndex] = record
+        return next
+      }
+      return [...prev, record]
+    })
+
+    setCurrentProjectId(id)
+    setCurrentProjectName(name)
+    setSaveDialogOpen(false)
+    setJustSaved(true)
+    setTimeout(() => setJustSaved(false), 1500)
+  }
+
+  function handleSaveClick() {
+    if (currentProjectId) {
+      saveAs(currentProjectName)
+    } else {
+      setSaveDialogOpen(true)
+    }
+  }
+
   if (!state?.panelWidth || !state?.panelHeight) {
     navigate('/', { replace: true })
     return null
@@ -100,7 +159,9 @@ export default function CanvasPage() {
         <div className="flex flex-1 flex-col">
           <header className="flex items-center justify-between border-b border-neutral-700 px-6 py-3">
             <div>
-              <h1 className="text-base font-semibold">Panel Builder</h1>
+              <h1 className="text-base font-semibold">
+                Panel Builder{currentProjectName && <span className="text-neutral-400"> &middot; {currentProjectName}</span>}
+              </h1>
               <p className="text-sm text-neutral-400">
                 {panelWidth}&Prime; &times; {panelHeight}&Prime; internal
               </p>
@@ -127,6 +188,13 @@ export default function CanvasPage() {
               />
               Show as fraction
             </label>
+            <button
+              type="button"
+              onClick={handleSaveClick}
+              className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
+            >
+              {justSaved ? 'Saved ✓' : 'Save'}
+            </button>
             <button
               type="button"
               onClick={() => navigate('/')}
@@ -176,6 +244,14 @@ export default function CanvasPage() {
           </div>
         )}
       </DragOverlay>
+
+      {saveDialogOpen && (
+        <SaveProjectDialog
+          initialName={currentProjectName}
+          onSave={saveAs}
+          onCancel={() => setSaveDialogOpen(false)}
+        />
+      )}
     </DndContext>
   )
 }

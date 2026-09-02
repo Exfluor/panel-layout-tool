@@ -123,6 +123,13 @@ export default function PanelCanvas({
           style={{ top: (panelHeight / 2) * scale }}
         />
       )}
+
+      {measuredRails.some((rail) => Math.abs(rail.x + rail.width / 2 - panelWidth / 2) < 0.02) && (
+        <div
+          className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-amber-400"
+          style={{ left: (panelWidth / 2) * scale }}
+        />
+      )}
     </div>
   )
 }

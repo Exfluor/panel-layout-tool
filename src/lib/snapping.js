@@ -40,6 +40,7 @@ export function computeSnappedPosition({
   const candidatesY = [{ value: 0 }, { value: panelHeight - height }]
 
   if (centerInPanel) {
+    candidatesX.push({ value: panelWidth / 2 - width / 2 })
     candidatesY.push({ value: panelHeight / 2 - height / 2 })
   }
 

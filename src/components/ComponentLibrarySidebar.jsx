@@ -1,5 +1,6 @@
 import { useDraggable } from '@dnd-kit/core'
 import { useState } from 'react'
+import { parseDimensionToInches } from '../lib/units'
 
 const emptyDraft = { name: '', width: '', height: '', color: '#3b82f6', isRail: false }
 
@@ -19,19 +20,17 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
       />
       <div className="flex gap-2">
         <input
-          type="number"
-          min="0"
-          step="any"
-          placeholder="Width (in)"
+          type="text"
+          inputMode="decimal"
+          placeholder="Width (e.g. 3 or 76mm)"
           value={draft.width}
           onChange={(e) => onChange({ ...draft, width: e.target.value })}
           className="w-1/2 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
         />
         <input
-          type="number"
-          min="0"
-          step="any"
-          placeholder="Height (in)"
+          type="text"
+          inputMode="decimal"
+          placeholder="Height (e.g. 3 or 76mm)"
           value={draft.height}
           onChange={(e) => onChange({ ...draft, height: e.target.value })}
           className="w-1/2 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
@@ -93,8 +92,8 @@ function ComponentRow({ component, onUpdate, onDelete }) {
 
   function handleSubmit(e) {
     e.preventDefault()
-    const width = Number(draft.width)
-    const height = Number(draft.height)
+    const width = parseDimensionToInches(draft.width)
+    const height = parseDimensionToInches(draft.height)
     if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
 
     onUpdate(component.id, {
@@ -172,8 +171,8 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
 
   function handleAddSubmit(e) {
     e.preventDefault()
-    const width = Number(draft.width)
-    const height = Number(draft.height)
+    const width = parseDimensionToInches(draft.width)
+    const height = parseDimensionToInches(draft.height)
     if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
 
     onAdd({ name: draft.name.trim(), width, height, color: draft.color, isRail: draft.isRail })

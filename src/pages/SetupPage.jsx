@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLocalStorageState } from '../hooks/useLocalStorageState'
+import { parseDimensionToInches } from '../lib/units'
 
 function formatUpdatedAt(iso) {
   return new Date(iso).toLocaleString(undefined, {
@@ -22,11 +23,11 @@ export default function SetupPage() {
 
   function handleSubmit(e) {
     e.preventDefault()
-    const w = Number(width)
-    const h = Number(height)
+    const w = parseDimensionToInches(width)
+    const h = parseDimensionToInches(height)
 
     if (!(w > 0) || !(h > 0)) {
-      setError('Enter a width and height greater than 0.')
+      setError('Enter a width and height greater than 0 (e.g. 24, 24in, or 610mm).')
       return
     }
 
@@ -85,15 +86,16 @@ export default function SetupPage() {
       >
         <h1 className="mb-1 text-lg font-semibold">Panel Builder</h1>
         <p className="mb-6 text-sm text-neutral-400">
-          Enter the enclosure's internal dimensions in inches.
+          Enter the enclosure's internal dimensions. Defaults to inches &mdash; type mm or cm to
+          convert (e.g. 610mm).
         </p>
 
         <label className="mb-3 block text-sm">
-          Internal width (in)
+          Internal width
           <input
-            type="number"
-            min="0"
-            step="any"
+            type="text"
+            inputMode="decimal"
+            placeholder="e.g. 24 or 610mm"
             value={width}
             onChange={(e) => setWidth(e.target.value)}
             className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-3 py-2 outline-none focus:border-blue-500"
@@ -102,11 +104,11 @@ export default function SetupPage() {
         </label>
 
         <label className="mb-4 block text-sm">
-          Internal height (in)
+          Internal height
           <input
-            type="number"
-            min="0"
-            step="any"
+            type="text"
+            inputMode="decimal"
+            placeholder="e.g. 20 or 508mm"
             value={height}
             onChange={(e) => setHeight(e.target.value)}
             className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-3 py-2 outline-none focus:border-blue-500"

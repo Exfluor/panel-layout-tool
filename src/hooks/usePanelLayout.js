@@ -7,29 +7,45 @@ export function usePanelLayout(initialComponents = []) {
 
   function placeNew(component, x, y) {
     const id = crypto.randomUUID()
-    setPlacedComponents((prev) => [
-      ...prev,
-      {
+    setPlacedComponents((prev) => {
+      const isRail = component.isRail ?? false
+      const newComponent = {
         id,
         name: component.name,
         width: component.width,
         height: component.height,
         color: component.color,
-        isRail: component.isRail ?? false,
+        isRail,
         x,
         y,
         rotation: 0,
         groupId: null,
-      },
-    ])
+        mountedOnRailId: null,
+      }
+      if (!isRail) {
+        const bounds = getBounds(newComponent)
+        const rail = prev.find((c) => c.isRail && rectsOverlap(bounds, getBounds(c)))
+        newComponent.mountedOnRailId = rail?.id ?? null
+      }
+      return [...prev, newComponent]
+    })
     setSelectedIds(new Set([id]))
   }
 
+  // Moves the given components, then re-checks rail mounting for whichever of
+  // them aren't rails themselves — a part that's dragged onto a rail mounts on
+  // it automatically, and one dragged away detaches, without any manual grouping.
   function moveGroup(ids, deltaX, deltaY) {
     if (deltaX === 0 && deltaY === 0) return
-    setPlacedComponents((prev) =>
-      prev.map((c) => (ids.includes(c.id) ? { ...c, x: c.x + deltaX, y: c.y + deltaY } : c)),
-    )
+    setPlacedComponents((prev) => {
+      const moved = prev.map((c) => (ids.includes(c.id) ? { ...c, x: c.x + deltaX, y: c.y + deltaY } : c))
+      return moved.map((c) => {
+        if (!ids.includes(c.id) || c.isRail) return c
+        const bounds = getBounds(c)
+        const rail = moved.find((other) => other.isRail && rectsOverlap(bounds, getBounds(other)))
+        return { ...c, mountedOnRailId: rail?.id ?? null }
+      })
+    })
   }
 
   function select(id, { additive = false } = {}) {
@@ -56,7 +72,12 @@ export function usePanelLayout(initialComponents = []) {
   }
 
   function deleteSelected() {
-    setPlacedComponents((prev) => prev.filter((c) => !selectedIds.has(c.id)))
+    setPlacedComponents((prev) => {
+      const deletedRailIds = new Set(prev.filter((c) => selectedIds.has(c.id) && c.isRail).map((c) => c.id))
+      return prev
+        .filter((c) => !selectedIds.has(c.id))
+        .map((c) => (deletedRailIds.has(c.mountedOnRailId) ? { ...c, mountedOnRailId: null } : c))
+    })
     setSelectedIds(new Set())
   }
 

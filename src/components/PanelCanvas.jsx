@@ -1,6 +1,17 @@
 import { getEffectiveSize } from '../lib/geometry'
 import PlacedComponent from './PlacedComponent'
 import RailDimensionGuides from './RailDimensionGuides'
+import RailDragHandle from './RailDragHandle'
+
+function getRenderPosition(component, dragGhost) {
+  let x = component.x
+  let y = component.y
+  if (dragGhost?.type === 'move' && dragGhost.groupIds.includes(component.id)) {
+    x += dragGhost.deltaX
+    y += dragGhost.deltaY
+  }
+  return { x, y }
+}
 
 function getMeasuredRails(placedComponents, selectedIds, dragGhost) {
   if (dragGhost?.type === 'new' && dragGhost.component.isRail) {
@@ -59,13 +70,7 @@ export default function PanelCanvas({
       {[...placedComponents]
         .sort((a, b) => (a.isRail === b.isRail ? 0 : a.isRail ? -1 : 1))
         .map((component) => {
-          let renderX = component.x
-          let renderY = component.y
-          if (dragGhost?.type === 'move' && dragGhost.groupIds.includes(component.id)) {
-            renderX += dragGhost.deltaX
-            renderY += dragGhost.deltaY
-          }
-
+          const { x: renderX, y: renderY } = getRenderPosition(component, dragGhost)
           return (
             <PlacedComponent
               key={component.id}
@@ -75,6 +80,23 @@ export default function PanelCanvas({
               scale={scale}
               selected={selectedIds.has(component.id)}
               overlapping={overlappingIds.has(component.id)}
+              onSelect={onSelect}
+            />
+          )
+        })}
+
+      {placedComponents
+        .filter((c) => c.isRail)
+        .map((rail) => {
+          const { x: renderX, y: renderY } = getRenderPosition(rail, dragGhost)
+          return (
+            <RailDragHandle
+              key={rail.id}
+              rail={rail}
+              x={renderX}
+              y={renderY}
+              scale={scale}
+              selected={selectedIds.has(rail.id)}
               onSelect={onSelect}
             />
           )

@@ -319,7 +319,13 @@ export default function CanvasPage() {
             onUngroup={layout.ungroupSelected}
           />
 
-          <PartsListPanel partsList={partsList} notes={partNotes} onNotesChange={handleNotesChange} />
+          <PartsListPanel
+            partsList={partsList}
+            notes={partNotes}
+            onNotesChange={handleNotesChange}
+            selectedIds={layout.selectedIds}
+            onSelectPart={layout.selectByIds}
+          />
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { downloadCsv, partsListToCsv } from '../lib/csv'
 
-export default function PartsListPanel({ partsList, notes, onNotesChange }) {
+export default function PartsListPanel({ partsList, notes, onNotesChange, selectedIds, onSelectPart }) {
   const [collapsed, setCollapsed] = useState(true)
   const totalCount = partsList.reduce((sum, p) => sum + p.quantity, 0)
 
@@ -48,30 +48,40 @@ export default function PartsListPanel({ partsList, notes, onNotesChange }) {
                 </tr>
               </thead>
               <tbody>
-                {partsList.map((part) => (
-                  <tr key={part.key} className="border-t border-neutral-800">
-                    <td className="py-1.5 pr-3">
-                      <span
-                        className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle"
-                        style={{ backgroundColor: part.color }}
-                      />
-                      {part.name}
-                    </td>
-                    <td className="py-1.5 pr-3 text-neutral-300">
-                      {part.width}&Prime; &times; {part.height}&Prime;
-                    </td>
-                    <td className="py-1.5 pr-3 text-neutral-300">{part.quantity}</td>
-                    <td className="py-1.5">
-                      <input
-                        type="text"
-                        value={notes[part.key] ?? ''}
-                        onChange={(e) => onNotesChange(part.key, e.target.value)}
-                        placeholder="Notes..."
-                        className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {partsList.map((part) => {
+                  const isSelected = part.ids.some((id) => selectedIds?.has(id))
+                  return (
+                    <tr
+                      key={part.key}
+                      onClick={() => onSelectPart?.(part.ids)}
+                      className={`cursor-pointer border-t border-neutral-800 ${
+                        isSelected ? 'bg-blue-500/10' : 'hover:bg-neutral-800'
+                      }`}
+                      title="Click to highlight these on the canvas"
+                    >
+                      <td className="py-1.5 pr-3">
+                        <span
+                          className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle"
+                          style={{ backgroundColor: part.color }}
+                        />
+                        {part.name}
+                      </td>
+                      <td className="py-1.5 pr-3 text-neutral-300">
+                        {part.width}&Prime; &times; {part.height}&Prime;
+                      </td>
+                      <td className="py-1.5 pr-3 text-neutral-300">{part.quantity}</td>
+                      <td className="py-1.5" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          value={notes[part.key] ?? ''}
+                          onChange={(e) => onNotesChange(part.key, e.target.value)}
+                          placeholder="Notes..."
+                          className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
               <tfoot>
                 <tr className="border-t border-neutral-700 text-xs text-neutral-400">

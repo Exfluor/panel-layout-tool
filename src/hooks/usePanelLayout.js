@@ -68,6 +68,10 @@ export function usePanelLayout(initialComponents = []) {
     })
   }
 
+  function selectByIds(ids) {
+    setSelectedIds(new Set(ids))
+  }
+
   function select(id, { additive = false } = {}) {
     const target = placedComponents.find((c) => c.id === id)
     if (!target) return
@@ -144,6 +148,7 @@ export function usePanelLayout(initialComponents = []) {
     placeNew,
     moveGroup,
     select,
+    selectByIds,
     clearSelection,
     deleteSelected,
     rotateSelected,

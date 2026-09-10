@@ -4,9 +4,11 @@ export function computePartsList(placedComponents) {
   for (const c of placedComponents) {
     const key = `${c.name}|${c.width}|${c.height}`
     if (!groups.has(key)) {
-      groups.set(key, { key, name: c.name, width: c.width, height: c.height, color: c.color, quantity: 0 })
+      groups.set(key, { key, name: c.name, width: c.width, height: c.height, color: c.color, quantity: 0, ids: [] })
     }
-    groups.get(key).quantity += 1
+    const group = groups.get(key)
+    group.quantity += 1
+    group.ids.push(c.id)
   }
 
   return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name))

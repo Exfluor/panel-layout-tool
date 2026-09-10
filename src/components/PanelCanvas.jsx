@@ -20,8 +20,17 @@ function railMeasureY(y, height, railMeasureMode) {
   return y + height / 2 // 'center'
 }
 
-function toMeasured(x, y, width, height, isRail, railMeasureMode) {
-  return { x, y, width, height, isRail, measureY: isRail ? railMeasureY(y, height, railMeasureMode) : y }
+function toMeasured(id, x, y, width, height, isRail, railMeasureMode, editable) {
+  return {
+    id,
+    x,
+    y,
+    width,
+    height,
+    isRail,
+    editable,
+    measureY: isRail ? railMeasureY(y, height, railMeasureMode) : y,
+  }
 }
 
 // If a rail is among the components being measured, show only the rail's own
@@ -33,11 +42,13 @@ function dropNonRailsIfRailPresent(components) {
 
 // Any selected, dragged, or newly-placed part gets dimension guides — a rail
 // measures/snaps by whichever edge/center is chosen (railMeasureMode), while
-// a regular part always measures from its top edge.
+// a regular part always measures from its top edge. Only a static (not
+// mid-drag) selection is editable — clicking a label then lets you type an
+// exact value and move the part to match.
 function getMeasuredComponents(placedComponents, selectedIds, dragGhost, railMeasureMode) {
   if (dragGhost?.type === 'new') {
     const isRail = Boolean(dragGhost.component.isRail)
-    return [toMeasured(dragGhost.x, dragGhost.y, dragGhost.width, dragGhost.height, isRail, railMeasureMode)]
+    return [toMeasured(null, dragGhost.x, dragGhost.y, dragGhost.width, dragGhost.height, isRail, railMeasureMode, false)]
   }
 
   if (dragGhost?.type === 'move') {
@@ -46,14 +57,23 @@ function getMeasuredComponents(placedComponents, selectedIds, dragGhost, railMea
     )
     return group.map((c) => {
       const { width, height } = getEffectiveSize(c)
-      return toMeasured(c.x + dragGhost.deltaX, c.y + dragGhost.deltaY, width, height, c.isRail, railMeasureMode)
+      return toMeasured(
+        c.id,
+        c.x + dragGhost.deltaX,
+        c.y + dragGhost.deltaY,
+        width,
+        height,
+        c.isRail,
+        railMeasureMode,
+        false,
+      )
     })
   }
 
   const selected = dropNonRailsIfRailPresent(placedComponents.filter((c) => selectedIds.has(c.id)))
   return selected.map((c) => {
     const { width, height } = getEffectiveSize(c)
-    return toMeasured(c.x, c.y, width, height, c.isRail, railMeasureMode)
+    return toMeasured(c.id, c.x, c.y, width, height, c.isRail, railMeasureMode, !c.locked)
   })
 }
 
@@ -98,6 +118,7 @@ export default function PanelCanvas({
   onSelect,
   onClearSelection,
   onToggleLock,
+  onMoveComponentBy,
   useFraction,
   railMeasureMode,
   lastPlacement,
@@ -196,6 +217,23 @@ export default function PanelCanvas({
           panelWidth={panelWidth}
           scale={scale}
           useFraction={useFraction}
+          editable={part.editable}
+          onEditMeasure={(newValue) => {
+            const offset = part.measureY - part.y
+            const newY = Math.min(Math.max(newValue - offset, 0), Math.max(0, panelHeight - part.height))
+            onMoveComponentBy(part.id, 0, newY - part.y)
+          }}
+          onEditLeftGap={(newValue) => {
+            const newX = Math.min(Math.max(newValue, 0), Math.max(0, panelWidth - part.width))
+            onMoveComponentBy(part.id, newX - part.x, 0)
+          }}
+          onEditRightGap={(newValue) => {
+            const newX = Math.min(
+              Math.max(panelWidth - part.width - newValue, 0),
+              Math.max(0, panelWidth - part.width),
+            )
+            onMoveComponentBy(part.id, newX - part.x, 0)
+          }}
         />
       ))}
 

@@ -24,7 +24,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
           <input
             type="text"
             inputMode="decimal"
-            placeholder="e.g. 3 or 76mm"
+            placeholder="e.g. 3, 2 1/2, or 76mm"
             value={draft.width}
             onChange={(e) => onChange({ ...draft, width: e.target.value })}
             className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
@@ -35,7 +35,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
           <input
             type="text"
             inputMode="decimal"
-            placeholder="e.g. 3 or 76mm"
+            placeholder="e.g. 3, 2 1/2, or 76mm"
             value={draft.height}
             onChange={(e) => onChange({ ...draft, height: e.target.value })}
             className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"

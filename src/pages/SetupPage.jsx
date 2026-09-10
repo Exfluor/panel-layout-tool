@@ -188,7 +188,7 @@ export default function SetupPage() {
           <input
             type="text"
             inputMode="decimal"
-            placeholder="e.g. 24 or 610mm"
+            placeholder="e.g. 24, 2 1/2, or 610mm"
             value={width}
             onChange={(e) => setWidth(e.target.value)}
             className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-3 py-2 outline-none focus:border-blue-500"
@@ -201,7 +201,7 @@ export default function SetupPage() {
           <input
             type="text"
             inputMode="decimal"
-            placeholder="e.g. 20 or 508mm"
+            placeholder="e.g. 20, 2 1/2, or 508mm"
             value={height}
             onChange={(e) => setHeight(e.target.value)}
             className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-3 py-2 outline-none focus:border-blue-500"

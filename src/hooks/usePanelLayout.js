@@ -78,6 +78,32 @@ export function usePanelLayout(initialComponents = []) {
     placeMultiple(component, nextX, y, quantity)
   }
 
+  // Which components move together with `primary` — its manual group (if
+  // any), plus everything mounted on it if it's a rail — excluding anything
+  // locked. Shared by dragging and by direct dimension edits so both move
+  // things identically.
+  function getMovableGroupIds(primary) {
+    let ids = primary.groupId
+      ? placedComponents.filter((c) => c.groupId === primary.groupId && !c.locked).map((c) => c.id)
+      : [primary.id]
+
+    if (primary.isRail) {
+      const mountedIds = placedComponents
+        .filter((c) => c.mountedOnRailId === primary.id && !c.locked)
+        .map((c) => c.id)
+      ids = Array.from(new Set([...ids, ...mountedIds]))
+    }
+    return ids
+  }
+
+  // Moves a single component (and whatever moves with it) by a delta,
+  // matching drag semantics exactly — used for direct dimension edits.
+  function moveComponentBy(id, deltaX, deltaY) {
+    const primary = placedComponents.find((c) => c.id === id)
+    if (!primary || primary.locked) return
+    moveGroup(getMovableGroupIds(primary), deltaX, deltaY)
+  }
+
   // Moves the given components, then re-checks rail mounting for whichever of
   // them aren't rails themselves — a part that's dragged onto a rail mounts on
   // it automatically, and one dragged away detaches, without any manual grouping.
@@ -236,6 +262,8 @@ export function usePanelLayout(initialComponents = []) {
     repeatLastPlacement,
     lastPlacement,
     moveGroup,
+    moveComponentBy,
+    getMovableGroupIds,
     select,
     selectByIds,
     clearSelection,

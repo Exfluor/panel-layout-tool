@@ -1,9 +1,29 @@
 import { useMemo, useState } from 'react'
 import { getBounds, rectsOverlap } from '../lib/geometry'
 
+const MAX_HISTORY = 5
+
 export function usePanelLayout(initialComponents = []) {
-  const [placedComponents, setPlacedComponents] = useState(initialComponents)
+  const [placedComponents, setPlacedComponentsRaw] = useState(initialComponents)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [history, setHistory] = useState([])
+
+  // Every mutation goes through here, so undo works generically for any
+  // action (placement, move, delete, rotate, group) without each one having
+  // to manage its own history entry.
+  function setPlacedComponents(updater) {
+    setHistory((prev) => [...prev, placedComponents].slice(-MAX_HISTORY))
+    setPlacedComponentsRaw(updater)
+  }
+
+  function undo() {
+    setHistory((prev) => {
+      if (prev.length === 0) return prev
+      setPlacedComponentsRaw(prev[prev.length - 1])
+      setSelectedIds(new Set())
+      return prev.slice(0, -1)
+    })
+  }
 
   function placeNew(component, x, y) {
     const id = crypto.randomUUID()
@@ -129,5 +149,7 @@ export function usePanelLayout(initialComponents = []) {
     rotateSelected,
     groupSelected,
     ungroupSelected,
+    undo,
+    canUndo: history.length > 0,
   }
 }

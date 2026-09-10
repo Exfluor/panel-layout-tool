@@ -90,6 +90,13 @@ export default function CanvasPage() {
   useEffect(() => {
     function handleKeyDown(e) {
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        layout.undo()
+        return
+      }
+
       if (layout.selectedIds.size === 0) return
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -254,6 +261,15 @@ export default function CanvasPage() {
               />
               Show as fraction
             </label>
+            <button
+              type="button"
+              onClick={layout.undo}
+              disabled={!layout.canUndo}
+              title="Undo (Ctrl+Z)"
+              className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Undo
+            </button>
             <button
               type="button"
               onClick={handleSaveClick}

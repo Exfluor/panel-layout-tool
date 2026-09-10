@@ -1,4 +1,5 @@
 import { DndContext, DragOverlay } from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import ComponentLibrarySidebar from '../components/ComponentLibrarySidebar'
@@ -257,6 +258,21 @@ export default function CanvasPage() {
     })
   }
 
+  // Reordering the sidebar's component list is a separate drag type from
+  // canvas placement/movement — useCanvasDnd ignores it entirely (its own
+  // origin ref stays null), so it's handled here instead.
+  function handleDragEnd(event) {
+    if (event.active.data.current?.type === 'sort') {
+      const oldIndex = library.findIndex((c) => c.id === event.active.id)
+      const newIndex = library.findIndex((c) => c.id === event.over?.id)
+      if (event.over && oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        setLibrary((prev) => arrayMove(prev, oldIndex, newIndex))
+      }
+      return
+    }
+    dnd.handleDragEnd(event)
+  }
+
   if (!state?.panelWidth || !state?.panelHeight) {
     navigate('/', { replace: true })
     return null
@@ -267,7 +283,7 @@ export default function CanvasPage() {
       sensors={dnd.sensors}
       onDragStart={dnd.handleDragStart}
       onDragMove={dnd.handleDragMove}
-      onDragEnd={dnd.handleDragEnd}
+      onDragEnd={handleDragEnd}
       onDragCancel={dnd.handleDragCancel}
     >
       <div className="flex h-full bg-neutral-900 text-neutral-100">

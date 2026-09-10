@@ -1,7 +1,22 @@
 import { useDraggable } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useRef, useState } from 'react'
 import { exportLibraryToFile, parseLibraryFile } from '../lib/libraryFile'
 import { parseDimensionToInches } from '../lib/units'
+
+function GripIcon(props) {
+  return (
+    <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" {...props}>
+      <circle cx="5" cy="3" r="1.3" />
+      <circle cx="11" cy="3" r="1.3" />
+      <circle cx="5" cy="8" r="1.3" />
+      <circle cx="11" cy="8" r="1.3" />
+      <circle cx="5" cy="13" r="1.3" />
+      <circle cx="11" cy="13" r="1.3" />
+    </svg>
+  )
+}
 
 const emptyDraft = { name: '', width: '', height: '', color: '#3b82f6', isRail: false }
 
@@ -86,6 +101,14 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
     id: `library:${component.id}`,
     data: { type: 'library', component, quantity },
   })
+  const {
+    attributes: sortAttributes,
+    listeners: sortListeners,
+    setNodeRef: setSortNodeRef,
+    transform,
+    transition,
+    isDragging: isSorting,
+  } = useSortable({ id: component.id, data: { type: 'sort' } })
 
   function startEdit() {
     setDraft({
@@ -128,13 +151,29 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node)
+        setSortNodeRef(node)
+      }}
       {...listeners}
       {...attributes}
-      className={`group rounded px-2 py-1.5 hover:bg-neutral-800 ${isDragging ? 'opacity-40' : ''}`}
-      style={{ cursor: 'grab', touchAction: 'none' }}
+      className={`group rounded px-2 py-1.5 hover:bg-neutral-800 ${isDragging ? 'opacity-40' : ''} ${isSorting ? 'z-10 opacity-60' : ''}`}
+      style={{ cursor: 'grab', touchAction: 'none', transform: CSS.Transform.toString(transform), transition }}
     >
       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          {...sortAttributes}
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            sortListeners?.onPointerDown?.(e)
+          }}
+          className="shrink-0 cursor-grab touch-none text-neutral-500 hover:text-neutral-300"
+          style={{ touchAction: 'none' }}
+          title="Drag to reorder"
+        >
+          <GripIcon />
+        </button>
         <span
           className="h-3.5 w-3.5 shrink-0 rounded-sm border border-black/20"
           style={{ backgroundColor: component.color }}
@@ -332,15 +371,17 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
             submitLabel="Add"
           />
         )}
-        {library.map((component) => (
-          <ComponentRow
-            key={component.id}
-            component={component}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-            onDuplicate={handleDuplicate}
-          />
-        ))}
+        <SortableContext items={library.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          {library.map((component) => (
+            <ComponentRow
+              key={component.id}
+              component={component}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+              onDuplicate={handleDuplicate}
+            />
+          ))}
+        </SortableContext>
         {library.length === 0 && !adding && (
           <p className="px-2 py-4 text-center text-xs text-neutral-500">
             No components yet. Add one to get started.

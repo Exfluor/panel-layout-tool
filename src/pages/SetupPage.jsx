@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ImportConflictDialog from '../components/ImportConflictDialog'
 import { useLocalStorageState } from '../hooks/useLocalStorageState'
+import { dedupeProjectName, exportProjectToFile, parseProjectFile } from '../lib/projectFile'
 import { parseDimensionToInches } from '../lib/units'
 
 function formatUpdatedAt(iso) {
@@ -17,7 +19,10 @@ export default function SetupPage() {
   const [width, setWidth] = useState('')
   const [height, setHeight] = useState('')
   const [error, setError] = useState('')
+  const [importError, setImportError] = useState('')
   const [projects, setProjects] = useLocalStorageState('panelBuilder.projects', [])
+  const [pendingImport, setPendingImport] = useState(null)
+  const fileInputRef = useRef(null)
 
   const sortedProjects = [...projects].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
@@ -45,11 +50,90 @@ export default function SetupPage() {
     setProjects((prev) => prev.filter((p) => p.id !== id))
   }
 
+  function handleExportProject(project, e) {
+    e.stopPropagation()
+    exportProjectToFile(project)
+  }
+
+  function handleImportClick() {
+    setImportError('')
+    fileInputRef.current?.click()
+  }
+
+  function handleFileChange(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const project = parseProjectFile(reader.result)
+        const conflict = projects.find(
+          (p) => p.name.trim().toLowerCase() === project.name.trim().toLowerCase(),
+        )
+        setImportError('')
+        if (conflict) {
+          setPendingImport({ project, conflict })
+        } else {
+          commitImport(project)
+        }
+      } catch (err) {
+        setImportError(err.message)
+      }
+    }
+    reader.onerror = () => setImportError('Could not read that file.')
+    reader.readAsText(file)
+  }
+
+  function commitImport(project) {
+    setProjects((prev) => [...prev, project])
+    handleLoad(project)
+  }
+
+  function handleOverwriteImport() {
+    const { project, conflict } = pendingImport
+    const merged = { ...project, id: conflict.id, createdAt: conflict.createdAt, updatedAt: new Date().toISOString() }
+    setProjects((prev) => prev.map((p) => (p.id === conflict.id ? merged : p)))
+    setPendingImport(null)
+    handleLoad(merged)
+  }
+
+  function handleKeepBothImport() {
+    const { project } = pendingImport
+    const name = dedupeProjectName(project.name, projects.map((p) => p.name))
+    setPendingImport(null)
+    commitImport({ ...project, name })
+  }
+
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 bg-neutral-900 p-6 text-neutral-100">
-      {sortedProjects.length > 0 && (
-        <div className="w-80 rounded-lg border border-neutral-700 bg-neutral-800 p-4">
-          <h2 className="mb-2 text-sm font-semibold">Your projects</h2>
+      <div className="w-80 rounded-lg border border-neutral-700 bg-neutral-800 p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Your projects</h2>
+          <button
+            type="button"
+            onClick={handleImportClick}
+            className="rounded border border-neutral-600 px-2 py-1 text-xs hover:bg-neutral-700"
+          >
+            Import file&hellip;
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </div>
+
+        {importError && <p className="mb-2 text-xs text-red-400">{importError}</p>}
+
+        {sortedProjects.length === 0 ? (
+          <p className="py-2 text-center text-xs text-neutral-500">
+            No saved projects yet. Create one below, or import a file.
+          </p>
+        ) : (
           <div className="max-h-48 space-y-1 overflow-y-auto">
             {sortedProjects.map((project) => (
               <div
@@ -67,18 +151,27 @@ export default function SetupPage() {
                     {formatUpdatedAt(project.updatedAt)}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => handleDeleteProject(project.id, e)}
-                  className="ml-2 shrink-0 rounded px-1.5 py-0.5 text-xs text-red-400 opacity-0 hover:bg-neutral-600 group-hover:opacity-100"
-                >
-                  Delete
-                </button>
+                <div className="ml-2 flex shrink-0 gap-1 opacity-0 group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={(e) => handleExportProject(project, e)}
+                    className="rounded px-1.5 py-0.5 text-xs text-neutral-300 hover:bg-neutral-600"
+                  >
+                    Export
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteProject(project.id, e)}
+                    className="rounded px-1.5 py-0.5 text-xs text-red-400 hover:bg-neutral-600"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <form
         onSubmit={handleSubmit}
@@ -124,6 +217,15 @@ export default function SetupPage() {
           Create panel
         </button>
       </form>
+
+      {pendingImport && (
+        <ImportConflictDialog
+          name={pendingImport.conflict.name}
+          onOverwrite={handleOverwriteImport}
+          onKeepBoth={handleKeepBothImport}
+          onCancel={() => setPendingImport(null)}
+        />
+      )}
     </div>
   )
 }

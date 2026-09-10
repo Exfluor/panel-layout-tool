@@ -6,12 +6,14 @@ import PanelCanvas from '../components/PanelCanvas'
 import PartsListPanel from '../components/PartsListPanel'
 import SaveProjectDialog from '../components/SaveProjectDialog'
 import SelectionInfoBar from '../components/SelectionInfoBar'
+import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
 import { useCanvasDnd } from '../hooks/useCanvasDnd'
 import { useElementSize } from '../hooks/useElementSize'
 import { useLocalStorageState } from '../hooks/useLocalStorageState'
 import { usePanelLayout } from '../hooks/usePanelLayout'
 import { defaultComponents } from '../lib/defaultComponents'
 import { computePartsList } from '../lib/partsList'
+import { exportProjectToFile } from '../lib/projectFile'
 
 const PADDING = 32
 
@@ -46,6 +48,15 @@ export default function CanvasPage() {
   const [currentProjectName, setCurrentProjectName] = useState(project?.name ?? '')
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
+  const [unsavedPromptOpen, setUnsavedPromptOpen] = useState(false)
+  const navigateAfterSaveRef = useRef(false)
+  const lastSavedSnapshotRef = useRef(
+    JSON.stringify({
+      placedComponents: project?.placedComponents ?? [],
+      library: project?.componentLibrary ?? defaultComponents,
+      partNotes: project?.partNotes ?? {},
+    }),
+  )
 
   const panelWidth = state?.panelWidth ?? 0
   const panelHeight = state?.panelHeight ?? 0
@@ -65,6 +76,15 @@ export default function CanvasPage() {
 
   function handleNotesChange(key, text) {
     setPartNotes((prev) => ({ ...prev, [key]: text }))
+  }
+
+  function isDirty() {
+    const current = JSON.stringify({
+      placedComponents: layout.placedComponents,
+      library: library ?? defaultComponents,
+      partNotes,
+    })
+    return current !== lastSavedSnapshotRef.current
   }
 
   useEffect(() => {
@@ -120,11 +140,22 @@ export default function CanvasPage() {
       return [...prev, record]
     })
 
+    lastSavedSnapshotRef.current = JSON.stringify({
+      placedComponents: layout.placedComponents,
+      library: library ?? defaultComponents,
+      partNotes,
+    })
+
     setCurrentProjectId(id)
     setCurrentProjectName(name)
     setSaveDialogOpen(false)
     setJustSaved(true)
     setTimeout(() => setJustSaved(false), 1500)
+
+    if (navigateAfterSaveRef.current) {
+      navigateAfterSaveRef.current = false
+      navigate('/')
+    }
   }
 
   function handleSaveClick() {
@@ -133,6 +164,41 @@ export default function CanvasPage() {
     } else {
       setSaveDialogOpen(true)
     }
+  }
+
+  function handleNewPanelClick() {
+    if (isDirty()) {
+      setUnsavedPromptOpen(true)
+    } else {
+      navigate('/')
+    }
+  }
+
+  function handleUnsavedSave() {
+    setUnsavedPromptOpen(false)
+    if (currentProjectId) {
+      saveAs(currentProjectName)
+      navigate('/')
+    } else {
+      navigateAfterSaveRef.current = true
+      setSaveDialogOpen(true)
+    }
+  }
+
+  function handleUnsavedDiscard() {
+    setUnsavedPromptOpen(false)
+    navigate('/')
+  }
+
+  function handleExportClick() {
+    exportProjectToFile({
+      name: currentProjectName || 'Untitled panel',
+      panelWidth,
+      panelHeight,
+      placedComponents: layout.placedComponents,
+      componentLibrary: library ?? defaultComponents,
+      partNotes,
+    })
   }
 
   if (!state?.panelWidth || !state?.panelHeight) {
@@ -197,7 +263,15 @@ export default function CanvasPage() {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={handleExportClick}
+              className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
+              title="Download this panel as a file you can save on your computer"
+            >
+              Export
+            </button>
+            <button
+              type="button"
+              onClick={handleNewPanelClick}
               className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
             >
               New panel
@@ -249,7 +323,18 @@ export default function CanvasPage() {
         <SaveProjectDialog
           initialName={currentProjectName}
           onSave={saveAs}
-          onCancel={() => setSaveDialogOpen(false)}
+          onCancel={() => {
+            navigateAfterSaveRef.current = false
+            setSaveDialogOpen(false)
+          }}
+        />
+      )}
+
+      {unsavedPromptOpen && (
+        <UnsavedChangesDialog
+          onSave={handleUnsavedSave}
+          onDiscard={handleUnsavedDiscard}
+          onCancel={() => setUnsavedPromptOpen(false)}
         />
       )}
     </DndContext>

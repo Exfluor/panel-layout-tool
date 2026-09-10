@@ -1,30 +1,4 @@
-function gcd(a, b) {
-  return b === 0 ? a : gcd(b, a % b)
-}
-
-// Fraction display (nearest 1/16") so eighth-inch grid positions are visually
-// obvious, e.g. 3.125 -> "3 1/8″" instead of a rounded "3.13".
-function formatFraction(value) {
-  const denominator = 16
-  const whole = Math.floor(value + 1e-6)
-  let numerator = Math.round((value - whole) * denominator)
-  let wholePart = whole
-
-  if (numerator === denominator) {
-    numerator = 0
-    wholePart += 1
-  }
-
-  if (numerator === 0) return `${wholePart}″`
-
-  const g = gcd(numerator, denominator)
-  const fraction = `${numerator / g}/${denominator / g}`
-  return wholePart > 0 ? `${wholePart} ${fraction}″` : `${fraction}″`
-}
-
-function formatDecimal(value) {
-  return `${Math.round(value * 1000) / 1000}″`
-}
+import { formatInches as formatInchesValue } from '../lib/formatInches'
 
 const EPSILON = 0.01
 
@@ -33,7 +7,7 @@ const EPSILON = 0.01
 // or a regular part's top edge otherwise. The horizontal gap lines are drawn
 // through the part's true geometric center regardless, purely for placement.
 export default function PartDimensionGuides({ part, panelWidth, scale, useFraction = true }) {
-  const formatInches = useFraction ? formatFraction : formatDecimal
+  const formatInches = (value) => formatInchesValue(value, useFraction)
   const centerX = part.x + part.width / 2
   const centerY = part.y + part.height / 2
   const measureY = part.measureY ?? centerY

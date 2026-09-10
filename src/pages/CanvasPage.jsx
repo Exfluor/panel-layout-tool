@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import ComponentLibrarySidebar from '../components/ComponentLibrarySidebar'
 import PanelCanvas from '../components/PanelCanvas'
 import PartsListPanel from '../components/PartsListPanel'
+import RailExternalRuler, { RULER_WIDTH } from '../components/RailExternalRuler'
 import SaveProjectDialog from '../components/SaveProjectDialog'
 import SelectionInfoBar from '../components/SelectionInfoBar'
 import UnsavedChangesDialog from '../components/UnsavedChangesDialog'
@@ -61,7 +62,7 @@ export default function CanvasPage() {
   const panelWidth = state?.panelWidth ?? 0
   const panelHeight = state?.panelHeight ?? 0
 
-  const availableWidth = containerSize.width - PADDING * 2
+  const availableWidth = containerSize.width - PADDING * 2 - RULER_WIDTH
   const availableHeight = containerSize.height - PADDING * 2
   const scale =
     panelWidth > 0 && panelHeight > 0 && availableWidth > 0 && availableHeight > 0
@@ -326,6 +327,14 @@ export default function CanvasPage() {
           </header>
 
           <div ref={containerRef} className="flex flex-1 items-center justify-center overflow-hidden">
+            {scale > 0 && (
+              <RailExternalRuler
+                rails={layout.placedComponents.filter((c) => c.isRail)}
+                panelHeight={panelHeight}
+                scale={scale}
+                useFraction={useFraction}
+              />
+            )}
             <PanelCanvas
               canvasRef={canvasRef}
               panelWidth={panelWidth}

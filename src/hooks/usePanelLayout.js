@@ -55,6 +55,7 @@ export function usePanelLayout(initialComponents = []) {
           rotation: 0,
           groupId: null,
           mountedOnRailId: null,
+          locked: false,
         }
         if (!isRail) {
           const bounds = getBounds(newComponent)
@@ -95,12 +96,14 @@ export function usePanelLayout(initialComponents = []) {
   }
 
   function selectByIds(ids) {
+    setLastPlacement(null)
     setSelectedIds(new Set(ids))
   }
 
   function select(id, { additive = false } = {}) {
     const target = placedComponents.find((c) => c.id === id)
     if (!target) return
+    setLastPlacement(null)
 
     const groupIds = target.groupId
       ? placedComponents.filter((c) => c.groupId === target.groupId).map((c) => c.id)
@@ -118,6 +121,7 @@ export function usePanelLayout(initialComponents = []) {
   }
 
   function clearSelection() {
+    setLastPlacement(null)
     setSelectedIds(new Set())
   }
 
@@ -149,6 +153,11 @@ export function usePanelLayout(initialComponents = []) {
   function ungroupSelected() {
     setLastPlacement(null)
     setPlacedComponents((prev) => prev.map((c) => (selectedIds.has(c.id) ? { ...c, groupId: null } : c)))
+  }
+
+  function toggleLock(id) {
+    setLastPlacement(null)
+    setPlacedComponents((prev) => prev.map((c) => (c.id === id ? { ...c, locked: !c.locked } : c)))
   }
 
   function copySelected() {
@@ -234,6 +243,7 @@ export function usePanelLayout(initialComponents = []) {
     rotateSelected,
     groupSelected,
     ungroupSelected,
+    toggleLock,
     copySelected,
     pasteClipboard,
     hasClipboard: Boolean(clipboard && clipboard.length > 0),

@@ -44,14 +44,16 @@ export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout
 
     if (data.type === 'placed') {
       const primary = layout.placedComponents.find((c) => c.id === data.id)
-      if (!primary) return
+      if (!primary || primary.locked) return // locked items can't be dragged at all
       let groupIds = primary.groupId
-        ? layout.placedComponents.filter((c) => c.groupId === primary.groupId).map((c) => c.id)
+        ? layout.placedComponents
+            .filter((c) => c.groupId === primary.groupId && !c.locked)
+            .map((c) => c.id)
         : [primary.id]
 
       if (primary.isRail) {
         const mountedIds = layout.placedComponents
-          .filter((c) => c.mountedOnRailId === primary.id)
+          .filter((c) => c.mountedOnRailId === primary.id && !c.locked)
           .map((c) => c.id)
         groupIds = Array.from(new Set([...groupIds, ...mountedIds]))
       }

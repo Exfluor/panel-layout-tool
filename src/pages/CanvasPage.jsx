@@ -399,6 +399,7 @@ export default function CanvasPage() {
                   dragGhost={dnd.dragGhost}
                   onSelect={layout.select}
                   onClearSelection={layout.clearSelection}
+                  onToggleLock={layout.toggleLock}
                   useFraction={useFraction}
                   lastPlacement={layout.lastPlacement}
                   onRepeatPlacement={layout.repeatLastPlacement}

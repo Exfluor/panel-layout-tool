@@ -61,6 +61,7 @@ export default function PanelCanvas({
   dragGhost,
   onSelect,
   onClearSelection,
+  onToggleLock,
   useFraction,
   lastPlacement,
   onRepeatPlacement,
@@ -116,6 +117,7 @@ export default function PanelCanvas({
               scale={scale}
               selected={selectedIds.has(rail.id)}
               onSelect={onSelect}
+              onToggleLock={onToggleLock}
             />
           )
         })}

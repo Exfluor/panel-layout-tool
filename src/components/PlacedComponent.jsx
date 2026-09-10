@@ -6,6 +6,7 @@ export default function PlacedComponent({ component, x, y, scale, selected, over
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: component.id,
     data: { type: 'placed', id: component.id },
+    disabled: component.locked,
   })
 
   const labelRef = useRef(null)
@@ -49,7 +50,7 @@ export default function PlacedComponent({ component, x, y, scale, selected, over
           width: boxWidth,
           height: boxHeight,
           backgroundColor: component.color,
-          cursor: 'grab',
+          cursor: component.locked ? 'not-allowed' : 'grab',
           touchAction: 'none',
         }}
       >

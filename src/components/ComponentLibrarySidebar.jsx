@@ -77,7 +77,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
   )
 }
 
-function ComponentRow({ component, onUpdate, onDelete }) {
+function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -137,7 +137,7 @@ function ComponentRow({ component, onUpdate, onDelete }) {
         style={{ backgroundColor: component.color }}
       />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm">
+        <div className="text-sm break-words">
           {component.name}
           {component.isRail && (
             <span className="ml-1.5 rounded bg-neutral-700 px-1 py-0.5 text-[10px] font-medium text-neutral-300">
@@ -157,6 +157,14 @@ function ComponentRow({ component, onUpdate, onDelete }) {
           title="Edit"
         >
           Edit
+        </button>
+        <button
+          type="button"
+          onClick={() => onDuplicate(component)}
+          className="rounded px-1.5 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
+          title="Duplicate"
+        >
+          Duplicate
         </button>
         <button
           type="button"
@@ -184,6 +192,16 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
     onAdd({ name: draft.name.trim(), width, height, color: draft.color, isRail: draft.isRail })
     setDraft(emptyDraft)
     setAdding(false)
+  }
+
+  function handleDuplicate(component) {
+    onAdd({
+      name: `${component.name} (copy)`,
+      width: component.width,
+      height: component.height,
+      color: component.color,
+      isRail: component.isRail ?? false,
+    })
   }
 
   return (
@@ -220,6 +238,7 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
             component={component}
             onUpdate={onUpdate}
             onDelete={onDelete}
+            onDuplicate={handleDuplicate}
           />
         ))}
         {library.length === 0 && !adding && (

@@ -19,22 +19,28 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
         autoFocus
       />
       <div className="flex gap-2">
-        <input
-          type="text"
-          inputMode="decimal"
-          placeholder="Width (e.g. 3 or 76mm)"
-          value={draft.width}
-          onChange={(e) => onChange({ ...draft, width: e.target.value })}
-          className="w-1/2 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
-        />
-        <input
-          type="text"
-          inputMode="decimal"
-          placeholder="Height (e.g. 3 or 76mm)"
-          value={draft.height}
-          onChange={(e) => onChange({ ...draft, height: e.target.value })}
-          className="w-1/2 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
-        />
+        <label className="w-1/2 text-xs text-neutral-400">
+          Width (in)
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="e.g. 3 or 76mm"
+            value={draft.width}
+            onChange={(e) => onChange({ ...draft, width: e.target.value })}
+            className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
+          />
+        </label>
+        <label className="w-1/2 text-xs text-neutral-400">
+          Height (in)
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="e.g. 3 or 76mm"
+            value={draft.height}
+            onChange={(e) => onChange({ ...draft, height: e.target.value })}
+            className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
+          />
+        </label>
       </div>
       <label className="flex items-center gap-1.5 text-xs text-neutral-300">
         <input

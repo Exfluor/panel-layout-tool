@@ -184,7 +184,7 @@ export default function SetupPage() {
         </p>
 
         <label className="mb-3 block text-sm">
-          Internal width
+          Internal width (in)
           <input
             type="text"
             inputMode="decimal"
@@ -197,7 +197,7 @@ export default function SetupPage() {
         </label>
 
         <label className="mb-4 block text-sm">
-          Internal height
+          Internal height (in)
           <input
             type="text"
             inputMode="decimal"

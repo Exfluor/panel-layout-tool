@@ -46,6 +46,7 @@ export default function CanvasPage() {
 
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true)
   const [useFraction, setUseFraction] = useState(true)
+  const [railMeasureMode, setRailMeasureMode] = useState('center')
 
   const [currentProjectId, setCurrentProjectId] = useState(project?.id ?? null)
   const [currentProjectName, setCurrentProjectName] = useState(project?.name ?? '')
@@ -76,7 +77,15 @@ export default function CanvasPage() {
   const isZoomedBeyondFit =
     scale > 0 && (panelWidth * scale > availableWidth || panelHeight * scale > availableHeight)
 
-  const dnd = useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout, gridSnapEnabled })
+  const dnd = useCanvasDnd({
+    panelWidth,
+    panelHeight,
+    scale,
+    canvasRef,
+    layout,
+    gridSnapEnabled,
+    railMeasureMode,
+  })
 
   const placedArea = layout.placedComponents.reduce((sum, c) => sum + c.width * c.height, 0)
   const freeArea = panelWidth * panelHeight - placedArea
@@ -301,6 +310,19 @@ export default function CanvasPage() {
               />
               Show as fraction
             </label>
+            <label className="flex items-center gap-1.5 text-sm text-neutral-300">
+              Rail ref
+              <select
+                value={railMeasureMode}
+                onChange={(e) => setRailMeasureMode(e.target.value)}
+                title="Which point on a rail its distance-from-top is measured/snapped from"
+                className="rounded border border-neutral-600 bg-neutral-900 px-1 py-1 text-xs text-neutral-100"
+              >
+                <option value="top">Top</option>
+                <option value="center">Center</option>
+                <option value="bottom">Bottom</option>
+              </select>
+            </label>
             <button
               type="button"
               onClick={layout.undo}
@@ -386,6 +408,7 @@ export default function CanvasPage() {
                     panelHeight={panelHeight}
                     scale={scale}
                     useFraction={useFraction}
+                    railMeasureMode={railMeasureMode}
                   />
                 )}
                 <PanelCanvas
@@ -401,6 +424,7 @@ export default function CanvasPage() {
                   onClearSelection={layout.clearSelection}
                   onToggleLock={layout.toggleLock}
                   useFraction={useFraction}
+                  railMeasureMode={railMeasureMode}
                   lastPlacement={layout.lastPlacement}
                   onRepeatPlacement={layout.repeatLastPlacement}
                 />

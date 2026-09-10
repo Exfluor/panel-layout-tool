@@ -10,7 +10,26 @@ function toBounds(component) {
   return { id: component.id, x: component.x, y: component.y, width, height, isRail: component.isRail }
 }
 
-export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout, gridSnapEnabled }) {
+// The point that grid-snap should target for a dragged item, matching
+// whatever PartDimensionGuides actually displays for it — a regular part
+// always measures from its top edge, while a rail measures from whichever
+// edge/center the user has chosen.
+function getMeasureOffset(isRail, height, railMeasureMode) {
+  if (!isRail) return 0
+  if (railMeasureMode === 'top') return 0
+  if (railMeasureMode === 'bottom') return height
+  return height / 2
+}
+
+export function useCanvasDnd({
+  panelWidth,
+  panelHeight,
+  scale,
+  canvasRef,
+  layout,
+  gridSnapEnabled,
+  railMeasureMode = 'center',
+}) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
   const [dragGhost, setDragGhost] = useState(null)
   const [activeLibraryComponent, setActiveLibraryComponent] = useState(null)
@@ -94,6 +113,7 @@ export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout
         threshold,
         centerInPanel: Boolean(origin.component.isRail),
         gridSnapEnabled,
+        measureOffset: getMeasureOffset(Boolean(origin.component.isRail), height, railMeasureMode),
       })
       return {
         type: 'new',
@@ -131,6 +151,7 @@ export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout
         threshold,
         centerInPanel: Boolean(primary.isRail),
         gridSnapEnabled,
+        measureOffset: getMeasureOffset(Boolean(primary.isRail), height, railMeasureMode),
       })
       return {
         type: 'move',

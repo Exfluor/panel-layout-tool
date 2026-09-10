@@ -1,4 +1,5 @@
-import { getEffectiveSize } from '../lib/geometry'
+import { getBounds, getEffectiveSize } from '../lib/geometry'
+import { formatInches } from '../lib/formatInches'
 import PartDimensionGuides from './PartDimensionGuides'
 import PlacedComponent from './PlacedComponent'
 import RailDragHandle from './RailDragHandle'
@@ -13,8 +14,14 @@ function getRenderPosition(component, dragGhost) {
   return { x, y }
 }
 
-function toMeasured(x, y, width, height, isRail) {
-  return { x, y, width, height, isRail, measureY: isRail ? y + height / 2 : y }
+function railMeasureY(y, height, railMeasureMode) {
+  if (railMeasureMode === 'top') return y
+  if (railMeasureMode === 'bottom') return y + height
+  return y + height / 2 // 'center'
+}
+
+function toMeasured(x, y, width, height, isRail, railMeasureMode) {
+  return { x, y, width, height, isRail, measureY: isRail ? railMeasureY(y, height, railMeasureMode) : y }
 }
 
 // If a rail is among the components being measured, show only the rail's own
@@ -25,12 +32,12 @@ function dropNonRailsIfRailPresent(components) {
 }
 
 // Any selected, dragged, or newly-placed part gets dimension guides — a rail
-// measures/snaps by its centerline (parts mount centered on it), while a
-// regular part measures from its top edge.
-function getMeasuredComponents(placedComponents, selectedIds, dragGhost) {
+// measures/snaps by whichever edge/center is chosen (railMeasureMode), while
+// a regular part always measures from its top edge.
+function getMeasuredComponents(placedComponents, selectedIds, dragGhost, railMeasureMode) {
   if (dragGhost?.type === 'new') {
     const isRail = Boolean(dragGhost.component.isRail)
-    return [toMeasured(dragGhost.x, dragGhost.y, dragGhost.width, dragGhost.height, isRail)]
+    return [toMeasured(dragGhost.x, dragGhost.y, dragGhost.width, dragGhost.height, isRail, railMeasureMode)]
   }
 
   if (dragGhost?.type === 'move') {
@@ -39,15 +46,44 @@ function getMeasuredComponents(placedComponents, selectedIds, dragGhost) {
     )
     return group.map((c) => {
       const { width, height } = getEffectiveSize(c)
-      return toMeasured(c.x + dragGhost.deltaX, c.y + dragGhost.deltaY, width, height, c.isRail)
+      return toMeasured(c.x + dragGhost.deltaX, c.y + dragGhost.deltaY, width, height, c.isRail, railMeasureMode)
     })
   }
 
   const selected = dropNonRailsIfRailPresent(placedComponents.filter((c) => selectedIds.has(c.id)))
   return selected.map((c) => {
     const { width, height } = getEffectiveSize(c)
-    return toMeasured(c.x, c.y, width, height, c.isRail)
+    return toMeasured(c.x, c.y, width, height, c.isRail, railMeasureMode)
   })
+}
+
+// When exactly two components are selected (and neither is mid-drag) and one
+// sits cleanly above the other, shows the vertical clearance between them —
+// e.g. the gap between a Panduit duct and the DIN rail below it.
+function getSelectionGap(placedComponents, selectedIds, dragGhost) {
+  if (dragGhost || selectedIds.size !== 2) return null
+  const [a, b] = [...selectedIds].map((id) => placedComponents.find((c) => c.id === id))
+  if (!a || !b) return null
+
+  const boundsA = getBounds(a)
+  const boundsB = getBounds(b)
+  let upper = null
+  let lower = null
+  if (boundsA.y + boundsA.height <= boundsB.y + 1e-6) {
+    upper = boundsA
+    lower = boundsB
+  } else if (boundsB.y + boundsB.height <= boundsA.y + 1e-6) {
+    upper = boundsB
+    lower = boundsA
+  } else {
+    return null // vertically overlapping — no clean "gap" to show
+  }
+
+  const gap = lower.y - (upper.y + upper.height)
+  if (gap < 0.01) return null
+
+  const lineX = (upper.x + upper.width / 2 + lower.x + lower.width / 2) / 2
+  return { lineX, topY: upper.y + upper.height, gap }
 }
 
 export default function PanelCanvas({
@@ -63,13 +99,15 @@ export default function PanelCanvas({
   onClearSelection,
   onToggleLock,
   useFraction,
+  railMeasureMode,
   lastPlacement,
   onRepeatPlacement,
 }) {
   if (scale <= 0) return null
 
-  const measuredComponents = getMeasuredComponents(placedComponents, selectedIds, dragGhost)
+  const measuredComponents = getMeasuredComponents(placedComponents, selectedIds, dragGhost, railMeasureMode)
   const measuredRails = measuredComponents.filter((c) => c.isRail)
+  const selectionGap = getSelectionGap(placedComponents, selectedIds, dragGhost)
 
   return (
     <div
@@ -173,6 +211,24 @@ export default function PanelCanvas({
           className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-amber-400"
           style={{ left: (panelWidth / 2) * scale }}
         />
+      )}
+
+      {selectionGap && (
+        <>
+          <div
+            className="pointer-events-none absolute border-l border-dashed border-sky-400"
+            style={{ left: selectionGap.lineX * scale, top: selectionGap.topY * scale, height: selectionGap.gap * scale }}
+          />
+          <span
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded bg-neutral-900/80 px-1 text-[10px] whitespace-nowrap text-sky-300"
+            style={{
+              left: selectionGap.lineX * scale,
+              top: (selectionGap.topY + selectionGap.gap / 2) * scale,
+            }}
+          >
+            {formatInches(selectionGap.gap, useFraction)}
+          </span>
+        </>
       )}
 
       {lastPlacement &&

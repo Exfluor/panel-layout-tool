@@ -23,7 +23,9 @@ function snapAxis(value, candidates, threshold) {
 // snappedRailId identifies which rail so the UI can show a guide line. A rail
 // itself also snaps to the panel's vertical center. When nothing nearby
 // claims an axis and gridSnapEnabled is on, it falls back to the nearest
-// 1/8" grid point so free dragging still lands on clean measurements.
+// 1/8" grid point — measured from `measureOffset` below `y` (whatever point
+// is actually displayed/labeled for this item) so the displayed number lands
+// cleanly on the grid, not just the raw top edge.
 export function computeSnappedPosition({
   x,
   y,
@@ -35,6 +37,7 @@ export function computeSnappedPosition({
   threshold,
   centerInPanel = false,
   gridSnapEnabled = true,
+  measureOffset = 0,
 }) {
   const candidatesX = [{ value: 0 }, { value: panelWidth - width }]
   const candidatesY = [{ value: 0 }, { value: panelHeight - height }]
@@ -66,12 +69,12 @@ export function computeSnappedPosition({
   let snappedY = snapAxis(y, candidatesY, threshold)
 
   if (gridSnapEnabled) {
-    // X is measured/displayed edge-to-wall, so grid-snap the edge. Y is measured
-    // from the component's centerline (e.g. a rail's mounting center), so snap
-    // the center instead — otherwise a gridded edge can produce an off-grid
-    // center whenever height/2 isn't itself a multiple of the grid step.
+    // X is measured/displayed edge-to-wall, so grid-snap the edge. Y grid-snaps
+    // whatever point is actually displayed (measureOffset below y) — otherwise
+    // a gridded top edge can produce an off-grid displayed value whenever the
+    // offset isn't itself a multiple of the grid step.
     if (snappedX.value === x) snappedX = { value: quantize(x) }
-    if (snappedY.value === y) snappedY = { value: quantize(y + height / 2) - height / 2 }
+    if (snappedY.value === y) snappedY = { value: quantize(y + measureOffset) - measureOffset }
   }
 
   const clampedX = Math.min(Math.max(snappedX.value, 0), Math.max(0, panelWidth - width))

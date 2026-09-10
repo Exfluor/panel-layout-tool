@@ -8,6 +8,7 @@ export function usePanelLayout(initialComponents = []) {
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [history, setHistory] = useState([])
   const [lastPlacement, setLastPlacement] = useState(null)
+  const [clipboard, setClipboard] = useState(null)
 
   // Every mutation goes through here, so undo works generically for any
   // action (placement, move, delete, rotate, group) without each one having
@@ -150,6 +151,53 @@ export function usePanelLayout(initialComponents = []) {
     setPlacedComponents((prev) => prev.map((c) => (selectedIds.has(c.id) ? { ...c, groupId: null } : c)))
   }
 
+  function copySelected() {
+    const items = placedComponents.filter((c) => selectedIds.has(c.id))
+    if (items.length === 0) return
+    setClipboard(items.map((c) => ({ ...c })))
+  }
+
+  // Pastes the clipboard as fresh components offset from their original
+  // spot, preserving relative positions/rotation and re-forming any shared
+  // group under a new id. Rail mounting is recomputed at the new position
+  // rather than carried over.
+  const PASTE_OFFSET = 0.5
+
+  function pasteClipboard() {
+    if (!clipboard || clipboard.length === 0) return
+    setLastPlacement(null)
+
+    const groupIdMap = new Map()
+    const pasted = clipboard.map((c) => {
+      let newGroupId = null
+      if (c.groupId) {
+        if (!groupIdMap.has(c.groupId)) groupIdMap.set(c.groupId, crypto.randomUUID())
+        newGroupId = groupIdMap.get(c.groupId)
+      }
+      return {
+        ...c,
+        id: crypto.randomUUID(),
+        x: c.x + PASTE_OFFSET,
+        y: c.y + PASTE_OFFSET,
+        groupId: newGroupId,
+        mountedOnRailId: null,
+      }
+    })
+    const pastedIds = new Set(pasted.map((c) => c.id))
+
+    setPlacedComponents((prev) => {
+      const working = [...prev, ...pasted]
+      return working.map((c) => {
+        if (!pastedIds.has(c.id) || c.isRail) return c
+        const bounds = getBounds(c)
+        const rail = working.find((other) => other.isRail && rectsOverlap(bounds, getBounds(other)))
+        return { ...c, mountedOnRailId: rail?.id ?? null }
+      })
+    })
+
+    setSelectedIds(pastedIds)
+  }
+
   const overlappingIds = useMemo(() => {
     const result = new Set()
     for (let i = 0; i < placedComponents.length; i++) {
@@ -186,6 +234,9 @@ export function usePanelLayout(initialComponents = []) {
     rotateSelected,
     groupSelected,
     ungroupSelected,
+    copySelected,
+    pasteClipboard,
+    hasClipboard: Boolean(clipboard && clipboard.length > 0),
     undo,
     canUndo: history.length > 0,
   }

@@ -97,6 +97,20 @@ export default function CanvasPage() {
         return
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        if (layout.selectedIds.size > 0) {
+          e.preventDefault()
+          layout.copySelected()
+        }
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault()
+        layout.pasteClipboard()
+        return
+      }
+
       if (layout.selectedIds.size === 0) return
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -336,6 +350,9 @@ export default function CanvasPage() {
             onRotate={layout.rotateSelected}
             onGroup={layout.groupSelected}
             onUngroup={layout.ungroupSelected}
+            onCopy={layout.copySelected}
+            onPaste={layout.pasteClipboard}
+            hasClipboard={layout.hasClipboard}
           />
 
           <PartsListPanel

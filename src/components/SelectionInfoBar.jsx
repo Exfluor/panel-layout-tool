@@ -1,9 +1,28 @@
-export default function SelectionInfoBar({ placedComponents, selectedIds, onDelete, onRotate, onGroup, onUngroup }) {
+export default function SelectionInfoBar({
+  placedComponents,
+  selectedIds,
+  onDelete,
+  onRotate,
+  onGroup,
+  onUngroup,
+  onCopy,
+  onPaste,
+  hasClipboard,
+}) {
   const selected = placedComponents.filter((c) => selectedIds.has(c.id))
   if (selected.length === 0) {
     return (
-      <div className="flex items-center justify-center border-t border-neutral-700 px-4 py-2 text-xs text-neutral-500">
-        Click a placed component to select it. Delete/R to remove or rotate.
+      <div className="flex items-center justify-between border-t border-neutral-700 px-4 py-2 text-xs text-neutral-500">
+        <span>Click a placed component to select it. Delete/R to remove or rotate.</span>
+        {hasClipboard && (
+          <button
+            type="button"
+            onClick={onPaste}
+            className="rounded border border-neutral-600 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-800"
+          >
+            Paste (Ctrl+V)
+          </button>
+        )}
       </div>
     )
   }
@@ -27,6 +46,22 @@ export default function SelectionInfoBar({ placedComponents, selectedIds, onDele
         )}
       </div>
       <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onCopy}
+          className="rounded border border-neutral-600 px-3 py-1 text-xs hover:bg-neutral-800"
+        >
+          Copy (Ctrl+C)
+        </button>
+        {hasClipboard && (
+          <button
+            type="button"
+            onClick={onPaste}
+            className="rounded border border-neutral-600 px-3 py-1 text-xs hover:bg-neutral-800"
+          >
+            Paste (Ctrl+V)
+          </button>
+        )}
         <button
           type="button"
           onClick={onRotate}

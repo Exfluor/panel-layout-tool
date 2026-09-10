@@ -1,6 +1,6 @@
 import { getEffectiveSize } from '../lib/geometry'
+import PartDimensionGuides from './PartDimensionGuides'
 import PlacedComponent from './PlacedComponent'
-import RailDimensionGuides from './RailDimensionGuides'
 import RailDragHandle from './RailDragHandle'
 
 function getRenderPosition(component, dragGhost) {
@@ -13,26 +13,41 @@ function getRenderPosition(component, dragGhost) {
   return { x, y }
 }
 
-function getMeasuredRails(placedComponents, selectedIds, dragGhost) {
-  if (dragGhost?.type === 'new' && dragGhost.component.isRail) {
-    return [{ x: dragGhost.x, y: dragGhost.y, width: dragGhost.width, height: dragGhost.height }]
+function toMeasured(x, y, width, height, isRail) {
+  return { x, y, width, height, isRail, measureY: isRail ? y + height / 2 : y }
+}
+
+// If a rail is among the components being measured, show only the rail's own
+// guide — a rail dragged together with everything mounted on it would
+// otherwise show a guide per mounted part, which gets crowded fast.
+function dropNonRailsIfRailPresent(components) {
+  return components.some((c) => c.isRail) ? components.filter((c) => c.isRail) : components
+}
+
+// Any selected, dragged, or newly-placed part gets dimension guides — a rail
+// measures/snaps by its centerline (parts mount centered on it), while a
+// regular part measures from its top edge.
+function getMeasuredComponents(placedComponents, selectedIds, dragGhost) {
+  if (dragGhost?.type === 'new') {
+    const isRail = Boolean(dragGhost.component.isRail)
+    return [toMeasured(dragGhost.x, dragGhost.y, dragGhost.width, dragGhost.height, isRail)]
   }
 
   if (dragGhost?.type === 'move') {
-    return placedComponents
-      .filter((c) => c.isRail && dragGhost.groupIds.includes(c.id))
-      .map((c) => {
-        const { width, height } = getEffectiveSize(c)
-        return { x: c.x + dragGhost.deltaX, y: c.y + dragGhost.deltaY, width, height }
-      })
+    const group = dropNonRailsIfRailPresent(
+      placedComponents.filter((c) => dragGhost.groupIds.includes(c.id)),
+    )
+    return group.map((c) => {
+      const { width, height } = getEffectiveSize(c)
+      return toMeasured(c.x + dragGhost.deltaX, c.y + dragGhost.deltaY, width, height, c.isRail)
+    })
   }
 
-  return placedComponents
-    .filter((c) => c.isRail && selectedIds.has(c.id))
-    .map((c) => {
-      const { width, height } = getEffectiveSize(c)
-      return { x: c.x, y: c.y, width, height }
-    })
+  const selected = dropNonRailsIfRailPresent(placedComponents.filter((c) => selectedIds.has(c.id)))
+  return selected.map((c) => {
+    const { width, height } = getEffectiveSize(c)
+    return toMeasured(c.x, c.y, width, height, c.isRail)
+  })
 }
 
 export default function PanelCanvas({
@@ -52,7 +67,8 @@ export default function PanelCanvas({
 }) {
   if (scale <= 0) return null
 
-  const measuredRails = getMeasuredRails(placedComponents, selectedIds, dragGhost)
+  const measuredComponents = getMeasuredComponents(placedComponents, selectedIds, dragGhost)
+  const measuredRails = measuredComponents.filter((c) => c.isRail)
 
   return (
     <div
@@ -133,10 +149,10 @@ export default function PanelCanvas({
           />
         ))}
 
-      {measuredRails.map((rail, i) => (
-        <RailDimensionGuides
+      {measuredComponents.map((part, i) => (
+        <PartDimensionGuides
           key={i}
-          rail={rail}
+          part={part}
           panelWidth={panelWidth}
           scale={scale}
           useFraction={useFraction}

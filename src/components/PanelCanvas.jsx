@@ -47,6 +47,8 @@ export default function PanelCanvas({
   onSelect,
   onClearSelection,
   useFraction,
+  lastPlacement,
+  onRepeatPlacement,
 }) {
   if (scale <= 0) return null
 
@@ -154,6 +156,27 @@ export default function PanelCanvas({
           style={{ left: (panelWidth / 2) * scale }}
         />
       )}
+
+      {lastPlacement &&
+        (() => {
+          const BUTTON = 24
+          const left = Math.min(lastPlacement.nextX * scale, panelWidth * scale - BUTTON)
+          const top = Math.min(
+            (lastPlacement.y + lastPlacement.component.height / 2) * scale - BUTTON / 2,
+            panelHeight * scale - BUTTON,
+          )
+          return (
+            <button
+              type="button"
+              onClick={onRepeatPlacement}
+              title={`Add ${lastPlacement.quantity} more ${lastPlacement.component.name}`}
+              className="absolute z-10 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-sm leading-none font-bold text-white shadow-lg hover:bg-blue-500"
+              style={{ left, top }}
+            >
+              +
+            </button>
+          )
+        })()}
     </div>
   )
 }

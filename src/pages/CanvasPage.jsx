@@ -272,6 +272,23 @@ export default function CanvasPage() {
             </button>
             <button
               type="button"
+              onClick={layout.repeatLastPlacement}
+              disabled={!layout.lastPlacement}
+              title={
+                layout.lastPlacement
+                  ? `Add ${layout.lastPlacement.quantity} more ${layout.lastPlacement.component.name}, continuing the row`
+                  : 'Place something first'
+              }
+              className={
+                layout.lastPlacement
+                  ? 'rounded border border-blue-500 bg-blue-600 px-3 py-1.5 text-sm hover:bg-blue-500'
+                  : 'rounded border border-neutral-600 px-3 py-1.5 text-sm opacity-40'
+              }
+            >
+              Repeat{layout.lastPlacement ? ` ×${layout.lastPlacement.quantity}` : ''}
+            </button>
+            <button
+              type="button"
               onClick={handleSaveClick}
               className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
             >
@@ -307,6 +324,8 @@ export default function CanvasPage() {
               onSelect={layout.select}
               onClearSelection={layout.clearSelection}
               useFraction={useFraction}
+              lastPlacement={layout.lastPlacement}
+              onRepeatPlacement={layout.repeatLastPlacement}
             />
           </div>
 

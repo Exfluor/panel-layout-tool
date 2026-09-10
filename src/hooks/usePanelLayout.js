@@ -81,6 +81,7 @@ export function usePanelLayout(initialComponents = []) {
   // it automatically, and one dragged away detaches, without any manual grouping.
   function moveGroup(ids, deltaX, deltaY) {
     if (deltaX === 0 && deltaY === 0) return
+    setLastPlacement(null)
     setPlacedComponents((prev) => {
       const moved = prev.map((c) => (ids.includes(c.id) ? { ...c, x: c.x + deltaX, y: c.y + deltaY } : c))
       return moved.map((c) => {
@@ -120,6 +121,7 @@ export function usePanelLayout(initialComponents = []) {
   }
 
   function deleteSelected() {
+    setLastPlacement(null)
     setPlacedComponents((prev) => {
       const deletedRailIds = new Set(prev.filter((c) => selectedIds.has(c.id) && c.isRail).map((c) => c.id))
       return prev
@@ -130,6 +132,7 @@ export function usePanelLayout(initialComponents = []) {
   }
 
   function rotateSelected() {
+    setLastPlacement(null)
     setPlacedComponents((prev) =>
       prev.map((c) => (selectedIds.has(c.id) ? { ...c, rotation: (c.rotation + 90) % 360 } : c)),
     )
@@ -137,11 +140,13 @@ export function usePanelLayout(initialComponents = []) {
 
   function groupSelected() {
     if (selectedIds.size < 2) return
+    setLastPlacement(null)
     const groupId = crypto.randomUUID()
     setPlacedComponents((prev) => prev.map((c) => (selectedIds.has(c.id) ? { ...c, groupId } : c)))
   }
 
   function ungroupSelected() {
+    setLastPlacement(null)
     setPlacedComponents((prev) => prev.map((c) => (selectedIds.has(c.id) ? { ...c, groupId: null } : c)))
   }
 

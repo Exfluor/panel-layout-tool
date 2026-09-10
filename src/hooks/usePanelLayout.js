@@ -7,6 +7,7 @@ export function usePanelLayout(initialComponents = []) {
   const [placedComponents, setPlacedComponentsRaw] = useState(initialComponents)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [history, setHistory] = useState([])
+  const [lastPlacement, setLastPlacement] = useState(null)
 
   // Every mutation goes through here, so undo works generically for any
   // action (placement, move, delete, rotate, group) without each one having
@@ -26,30 +27,53 @@ export function usePanelLayout(initialComponents = []) {
   }
 
   function placeNew(component, x, y) {
-    const id = crypto.randomUUID()
+    placeMultiple(component, x, y, 1)
+  }
+
+  // Places `quantity` copies flush in a row starting at (x, y), extending
+  // along X by the component's own width — one drag places a whole row
+  // instead of N separate drags. Also remembers where the row ended so
+  // repeatLastPlacement can continue it.
+  function placeMultiple(component, x, y, quantity = 1) {
+    const count = Math.max(1, Math.floor(quantity))
+    const isRail = component.isRail ?? false
+    const ids = Array.from({ length: count }, () => crypto.randomUUID())
+
     setPlacedComponents((prev) => {
-      const isRail = component.isRail ?? false
-      const newComponent = {
-        id,
-        name: component.name,
-        width: component.width,
-        height: component.height,
-        color: component.color,
-        isRail,
-        x,
-        y,
-        rotation: 0,
-        groupId: null,
-        mountedOnRailId: null,
+      let working = prev
+      for (let i = 0; i < count; i++) {
+        const newComponent = {
+          id: ids[i],
+          name: component.name,
+          width: component.width,
+          height: component.height,
+          color: component.color,
+          isRail,
+          x: x + i * component.width,
+          y,
+          rotation: 0,
+          groupId: null,
+          mountedOnRailId: null,
+        }
+        if (!isRail) {
+          const bounds = getBounds(newComponent)
+          const rail = working.find((c) => c.isRail && rectsOverlap(bounds, getBounds(c)))
+          newComponent.mountedOnRailId = rail?.id ?? null
+        }
+        working = [...working, newComponent]
       }
-      if (!isRail) {
-        const bounds = getBounds(newComponent)
-        const rail = prev.find((c) => c.isRail && rectsOverlap(bounds, getBounds(c)))
-        newComponent.mountedOnRailId = rail?.id ?? null
-      }
-      return [...prev, newComponent]
+      return working
     })
-    setSelectedIds(new Set([id]))
+
+    setSelectedIds(new Set(ids))
+    setLastPlacement({ component, nextX: x + count * component.width, y, quantity: count })
+    return ids
+  }
+
+  function repeatLastPlacement() {
+    if (!lastPlacement) return
+    const { component, nextX, y, quantity } = lastPlacement
+    placeMultiple(component, nextX, y, quantity)
   }
 
   // Moves the given components, then re-checks rail mounting for whichever of
@@ -146,6 +170,9 @@ export function usePanelLayout(initialComponents = []) {
     selectedIds,
     overlappingIds,
     placeNew,
+    placeMultiple,
+    repeatLastPlacement,
+    lastPlacement,
     moveGroup,
     select,
     selectByIds,

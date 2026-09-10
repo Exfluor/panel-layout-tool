@@ -115,19 +115,21 @@ export default function PanelCanvas({
           )
         })()}
 
-      {dragGhost?.type === 'new' && (
-        <div
-          className="pointer-events-none absolute border-2 border-dashed border-white/70"
-          style={{
-            left: dragGhost.x * scale,
-            top: dragGhost.y * scale,
-            width: dragGhost.width * scale,
-            height: dragGhost.height * scale,
-            backgroundColor: dragGhost.component.color,
-            opacity: 0.5,
-          }}
-        />
-      )}
+      {dragGhost?.type === 'new' &&
+        Array.from({ length: Math.max(1, dragGhost.quantity ?? 1) }, (_, i) => (
+          <div
+            key={i}
+            className="pointer-events-none absolute border-2 border-dashed border-white/70"
+            style={{
+              left: (dragGhost.x + i * dragGhost.width) * scale,
+              top: dragGhost.y * scale,
+              width: dragGhost.width * scale,
+              height: dragGhost.height * scale,
+              backgroundColor: dragGhost.component.color,
+              opacity: 0.5,
+            }}
+          />
+        ))}
 
       {measuredRails.map((rail, i) => (
         <RailDimensionGuides

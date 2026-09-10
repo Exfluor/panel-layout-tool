@@ -80,9 +80,10 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
 function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
+  const [quantity, setQuantity] = useState(1)
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `library:${component.id}`,
-    data: { type: 'library', component },
+    data: { type: 'library', component, quantity },
   })
 
   function startEdit() {
@@ -129,15 +130,15 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-neutral-800 ${isDragging ? 'opacity-40' : ''}`}
+      className={`group rounded px-2 py-1.5 hover:bg-neutral-800 ${isDragging ? 'opacity-40' : ''}`}
       style={{ cursor: 'grab', touchAction: 'none' }}
     >
-      <span
-        className="h-3.5 w-3.5 shrink-0 rounded-sm border border-black/20"
-        style={{ backgroundColor: component.color }}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="text-sm break-words">
+      <div className="flex items-center gap-2">
+        <span
+          className="h-3.5 w-3.5 shrink-0 rounded-sm border border-black/20"
+          style={{ backgroundColor: component.color }}
+        />
+        <div className="min-w-0 flex-1 text-sm break-words">
           {component.name}
           {component.isRail && (
             <span className="ml-1.5 rounded bg-neutral-700 px-1 py-0.5 text-[10px] font-medium text-neutral-300">
@@ -145,35 +146,50 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
             </span>
           )}
         </div>
-        <div className="text-xs text-neutral-400">
-          {component.width}&Prime; &times; {component.height}&Prime;
-        </div>
       </div>
-      <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100">
-        <button
-          type="button"
-          onClick={startEdit}
-          className="rounded px-1.5 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
-          title="Edit"
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          onClick={() => onDuplicate(component)}
-          className="rounded px-1.5 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
-          title="Duplicate"
-        >
-          Duplicate
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(component.id)}
-          className="rounded px-1.5 py-0.5 text-xs text-red-400 hover:bg-neutral-700"
-          title="Delete"
-        >
-          Delete
-        </button>
+
+      <div className="mt-1 flex items-center justify-between gap-2 pl-5">
+        <span className="text-xs text-neutral-400">
+          {component.width}&Prime; &times; {component.height}&Prime;
+        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={quantity}
+            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            onPointerDown={(e) => e.stopPropagation()}
+            title="Quantity to place per drag"
+            className="w-11 rounded border border-neutral-600 bg-neutral-800 px-1 py-0.5 text-center text-xs outline-none focus:border-blue-500"
+          />
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={startEdit}
+              className="rounded px-1.5 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
+              title="Edit"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => onDuplicate(component)}
+              className="rounded px-1.5 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
+              title="Duplicate"
+            >
+              Duplicate
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(component.id)}
+              className="rounded px-1.5 py-0.5 text-xs text-red-400 hover:bg-neutral-700"
+              title="Delete"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

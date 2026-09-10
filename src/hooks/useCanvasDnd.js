@@ -32,7 +32,12 @@ export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout
     const pointerStart = { x: activatorEvent.clientX, y: activatorEvent.clientY }
 
     if (data.type === 'library') {
-      dragOriginRef.current = { type: 'library', component: data.component, pointerStart }
+      dragOriginRef.current = {
+        type: 'library',
+        component: data.component,
+        quantity: data.quantity ?? 1,
+        pointerStart,
+      }
       setActiveLibraryComponent(data.component)
       return
     }
@@ -95,6 +100,7 @@ export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout
         y: snapped.y,
         width,
         height,
+        quantity: origin.quantity,
         pointer,
         snappedRailId: snapped.snappedRailId,
       }
@@ -152,7 +158,7 @@ export function useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout
         candidate.pointer.y >= rect.top &&
         candidate.pointer.y <= rect.bottom
       if (droppedOnCanvas) {
-        layout.placeNew(candidate.component, candidate.x, candidate.y)
+        layout.placeMultiple(candidate.component, candidate.x, candidate.y, candidate.quantity)
       }
     } else if (candidate?.type === 'move') {
       layout.moveGroup(candidate.groupIds, candidate.deltaX, candidate.deltaY)

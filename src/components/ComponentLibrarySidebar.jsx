@@ -1,9 +1,11 @@
-import { useDraggable } from '@dnd-kit/core'
+import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useRef, useState } from 'react'
 import { exportLibraryToFile, parseLibraryFile } from '../lib/libraryFile'
 import { parseDimensionToInches } from '../lib/units'
+
+export const UNCATEGORIZED_DROP_ID = '__uncategorized__'
 
 function GripIcon(props) {
   return (
@@ -18,9 +20,9 @@ function GripIcon(props) {
   )
 }
 
-const emptyDraft = { name: '', width: '', height: '', color: '#3b82f6', isRail: false }
+const emptyDraft = { name: '', width: '', height: '', color: '#3b82f6', isRail: false, folderId: null }
 
-function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
+function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folders }) {
   return (
     <form
       onSubmit={onSubmit}
@@ -58,6 +60,23 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
           />
         </label>
       </div>
+      {folders.length > 0 && (
+        <label className="block text-xs text-neutral-400">
+          Folder
+          <select
+            value={draft.folderId ?? ''}
+            onChange={(e) => onChange({ ...draft, folderId: e.target.value || null })}
+            className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
+          >
+            <option value="">Uncategorized</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="flex items-center gap-1.5 text-xs text-neutral-300">
         <input
           type="checkbox"
@@ -93,7 +112,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel }) {
   )
 }
 
-function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
+function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
   const [quantity, setQuantity] = useState(1)
@@ -117,6 +136,7 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
       height: String(component.height),
       color: component.color,
       isRail: component.isRail ?? false,
+      folderId: component.folderId ?? null,
     })
     setEditing(true)
   }
@@ -133,6 +153,7 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
       height,
       color: draft.color,
       isRail: draft.isRail,
+      folderId: draft.folderId,
     })
     setEditing(false)
   }
@@ -145,6 +166,7 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
         onSubmit={handleSubmit}
         onCancel={() => setEditing(false)}
         submitLabel="Save"
+        folders={folders}
       />
     )
   }
@@ -170,7 +192,7 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
           }}
           className="shrink-0 cursor-grab touch-none text-neutral-500 hover:text-neutral-300"
           style={{ touchAction: 'none' }}
-          title="Drag to reorder"
+          title="Drag to reorder or move into a folder"
         >
           <GripIcon />
         </button>
@@ -235,6 +257,88 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
   )
 }
 
+function FolderHeader({ folder, count, onToggleCollapse, onRename, onDelete }) {
+  const [renaming, setRenaming] = useState(false)
+  const [nameDraft, setNameDraft] = useState(folder.name)
+  const { setNodeRef, isOver } = useDroppable({ id: folder.id, data: { type: 'folder' } })
+
+  if (renaming) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (nameDraft.trim()) onRename(nameDraft.trim())
+          setRenaming(false)
+        }}
+        className="flex items-center gap-1 px-1 py-1"
+      >
+        <input
+          autoFocus
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          className="w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-xs outline-none focus:border-blue-500"
+        />
+        <button type="submit" className="rounded bg-blue-600 px-2 py-1 text-xs hover:bg-blue-500">
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={() => setRenaming(false)}
+          className="rounded border border-neutral-600 px-2 py-1 text-xs hover:bg-neutral-700"
+        >
+          Cancel
+        </button>
+      </form>
+    )
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`group flex items-center justify-between rounded px-1 py-1 ${isOver ? 'bg-blue-500/20 ring-1 ring-blue-400' : 'hover:bg-neutral-800/60'}`}
+    >
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-semibold text-neutral-300"
+      >
+        <span className="inline-block w-3 text-neutral-500">{folder.collapsed ? '▸' : '▾'}</span>
+        <span className="truncate">{folder.name}</span>
+        <span className="text-neutral-500">({count})</span>
+      </button>
+      <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={() => setRenaming(true)}
+          className="rounded px-1.5 py-0.5 text-[10px] text-neutral-300 hover:bg-neutral-700"
+        >
+          Rename
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="rounded px-1.5 py-0.5 text-[10px] text-red-400 hover:bg-neutral-700"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function UncategorizedHeader() {
+  const { setNodeRef, isOver } = useDroppable({ id: UNCATEGORIZED_DROP_ID, data: { type: 'folder' } })
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded px-1 py-1 text-xs font-semibold text-neutral-400 ${isOver ? 'bg-blue-500/20 ring-1 ring-blue-400' : ''}`}
+    >
+      Uncategorized
+    </div>
+  )
+}
+
 function isSameComponent(a, b) {
   return (
     a.name.trim().toLowerCase() === b.name.trim().toLowerCase() &&
@@ -247,10 +351,20 @@ function isSameComponent(a, b) {
 
 export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDelete }) {
   const [adding, setAdding] = useState(false)
+  const [addingFolder, setAddingFolder] = useState(false)
+  const [folderNameDraft, setFolderNameDraft] = useState('')
   const [draft, setDraft] = useState(emptyDraft)
   const [importError, setImportError] = useState('')
   const [importMessage, setImportMessage] = useState('')
   const fileInputRef = useRef(null)
+
+  const folders = library.filter((item) => item.isFolder)
+  const components = library.filter((item) => !item.isFolder)
+
+  function componentsInFolder(folderId) {
+    return components.filter((c) => (c.folderId ?? null) === folderId)
+  }
+  const uncategorized = componentsInFolder(null)
 
   function handleExportLibrary() {
     exportLibraryToFile(library)
@@ -270,12 +384,12 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
     const reader = new FileReader()
     reader.onload = () => {
       try {
-        const components = parseLibraryFile(reader.result)
-        const newOnes = components.filter((c) => !library.some((existing) => isSameComponent(c, existing)))
+        const imported = parseLibraryFile(reader.result)
+        const newOnes = imported.filter((c) => !components.some((existing) => isSameComponent(c, existing)))
         newOnes.forEach((c) => onAdd(c))
 
         setImportError('')
-        const skipped = components.length - newOnes.length
+        const skipped = imported.length - newOnes.length
         setImportMessage(
           skipped > 0
             ? `Imported ${newOnes.length} new component${newOnes.length === 1 ? '' : 's'}; skipped ${skipped} already in your library.`
@@ -299,7 +413,14 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
     const height = parseDimensionToInches(draft.height)
     if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
 
-    onAdd({ name: draft.name.trim(), width, height, color: draft.color, isRail: draft.isRail })
+    onAdd({
+      name: draft.name.trim(),
+      width,
+      height,
+      color: draft.color,
+      isRail: draft.isRail,
+      folderId: draft.folderId,
+    })
     setDraft(emptyDraft)
     setAdding(false)
   }
@@ -311,7 +432,34 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
       height: component.height,
       color: component.color,
       isRail: component.isRail ?? false,
+      folderId: component.folderId ?? null,
     })
+  }
+
+  function handleAddFolder(e) {
+    e.preventDefault()
+    if (!folderNameDraft.trim()) return
+    onAdd({ isFolder: true, name: folderNameDraft.trim(), collapsed: false })
+    setFolderNameDraft('')
+    setAddingFolder(false)
+  }
+
+  function handleDeleteFolder(folderId) {
+    componentsInFolder(folderId).forEach((c) => onUpdate(c.id, { folderId: null }))
+    onDelete(folderId)
+  }
+
+  function renderRow(component) {
+    return (
+      <ComponentRow
+        key={component.id}
+        component={component}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onDuplicate={handleDuplicate}
+        folders={folders}
+      />
+    )
   }
 
   return (
@@ -332,7 +480,7 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
             </button>
           )}
         </div>
-        <div className="mt-1.5 flex items-center gap-2">
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleExportLibrary}
@@ -349,6 +497,15 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
           >
             Import library&hellip;
           </button>
+          {!addingFolder && (
+            <button
+              type="button"
+              onClick={() => setAddingFolder(true)}
+              className="rounded border border-neutral-600 px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
+            >
+              + Folder
+            </button>
+          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -357,6 +514,27 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
             className="hidden"
           />
         </div>
+        {addingFolder && (
+          <form onSubmit={handleAddFolder} className="mt-1.5 flex items-center gap-1">
+            <input
+              autoFocus
+              value={folderNameDraft}
+              onChange={(e) => setFolderNameDraft(e.target.value)}
+              placeholder="Folder name"
+              className="w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
+            />
+            <button type="submit" className="rounded bg-blue-600 px-2 py-1 text-xs hover:bg-blue-500">
+              Add
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddingFolder(false)}
+              className="rounded border border-neutral-600 px-2 py-1 text-xs hover:bg-neutral-700"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
         {importError && <p className="mt-1.5 text-xs text-red-400">{importError}</p>}
         {importMessage && <p className="mt-1.5 text-xs text-neutral-400">{importMessage}</p>}
       </div>
@@ -369,19 +547,42 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
             onSubmit={handleAddSubmit}
             onCancel={() => setAdding(false)}
             submitLabel="Add"
+            folders={folders}
           />
         )}
-        <SortableContext items={library.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-          {library.map((component) => (
-            <ComponentRow
-              key={component.id}
-              component={component}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-              onDuplicate={handleDuplicate}
-            />
-          ))}
+
+        {folders.map((folder) => {
+          const items = componentsInFolder(folder.id)
+          return (
+            <div key={folder.id} className="mb-1">
+              <FolderHeader
+                folder={folder}
+                count={items.length}
+                onToggleCollapse={() => onUpdate(folder.id, { collapsed: !folder.collapsed })}
+                onRename={(name) => onUpdate(folder.id, { name })}
+                onDelete={() => handleDeleteFolder(folder.id)}
+              />
+              {!folder.collapsed && (
+                <SortableContext items={items.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-1 pl-2">
+                    {items.length === 0 ? (
+                      <p className="px-2 py-2 text-center text-[10px] text-neutral-500">Drag a component here</p>
+                    ) : (
+                      items.map(renderRow)
+                    )}
+                  </div>
+                </SortableContext>
+              )}
+            </div>
+          )
+        })}
+
+        {folders.length > 0 && <UncategorizedHeader />}
+
+        <SortableContext items={uncategorized.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          <div className={folders.length > 0 ? 'space-y-1 pl-2' : 'space-y-1'}>{uncategorized.map(renderRow)}</div>
         </SortableContext>
+
         {library.length === 0 && !adding && (
           <p className="px-2 py-4 text-center text-xs text-neutral-500">
             No components yet. Add one to get started.

@@ -1,7 +1,11 @@
 export function exportLibraryToFile(library, filename = 'component-library') {
   const payload = {
     kind: 'panel-builder-component-library',
-    components: library.map(({ id, ...rest }) => rest), // fresh ids assigned on import
+    // Folders are local organization, not shared — only real components go out.
+    // Fresh ids are assigned on import, so id/folderId are dropped here too.
+    components: library
+      .filter((item) => !item.isFolder)
+      .map(({ id, folderId, ...rest }) => rest),
   }
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })

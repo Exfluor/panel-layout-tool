@@ -2,7 +2,7 @@ import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import ComponentLibrarySidebar from '../components/ComponentLibrarySidebar'
+import ComponentLibrarySidebar, { UNCATEGORIZED_DROP_ID } from '../components/ComponentLibrarySidebar'
 import Minimap from '../components/Minimap'
 import PanelCanvas from '../components/PanelCanvas'
 import PartsListPanel from '../components/PartsListPanel'
@@ -263,11 +263,43 @@ export default function CanvasPage() {
   // origin ref stays null), so it's handled here instead.
   function handleDragEnd(event) {
     if (event.active.data.current?.type === 'sort') {
-      const oldIndex = library.findIndex((c) => c.id === event.active.id)
-      const newIndex = library.findIndex((c) => c.id === event.over?.id)
-      if (event.over && oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-        setLibrary((prev) => arrayMove(prev, oldIndex, newIndex))
+      const overId = event.over?.id
+      if (!overId) return
+
+      const activeItem = library.find((c) => c.id === event.active.id)
+      if (!activeItem) return
+
+      // Dropped directly on a folder header (or the Uncategorized zone) just
+      // re-files it there. Dropped on another component reorders alongside
+      // it, inheriting that component's folder — so one drag can both move
+      // between folders and position it precisely.
+      let targetFolderId = activeItem.folderId ?? null
+      let reorderOverId = null
+
+      const overFolder = library.find((c) => c.id === overId && c.isFolder)
+      if (overFolder) {
+        targetFolderId = overFolder.id
+      } else if (overId === UNCATEGORIZED_DROP_ID) {
+        targetFolderId = null
+      } else {
+        const overItem = library.find((c) => c.id === overId)
+        if (overItem && !overItem.isFolder) {
+          targetFolderId = overItem.folderId ?? null
+          reorderOverId = overItem.id
+        }
       }
+
+      setLibrary((prev) => {
+        let next = prev.map((c) => (c.id === activeItem.id ? { ...c, folderId: targetFolderId } : c))
+        if (reorderOverId) {
+          const oldIndex = next.findIndex((c) => c.id === activeItem.id)
+          const newIndex = next.findIndex((c) => c.id === reorderOverId)
+          if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            next = arrayMove(next, oldIndex, newIndex)
+          }
+        }
+        return next
+      })
       return
     }
     dnd.handleDragEnd(event)

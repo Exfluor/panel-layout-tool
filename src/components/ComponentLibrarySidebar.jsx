@@ -1,5 +1,6 @@
 import { useDraggable } from '@dnd-kit/core'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { exportLibraryToFile, parseLibraryFile } from '../lib/libraryFile'
 import { parseDimensionToInches } from '../lib/units'
 
 const emptyDraft = { name: '', width: '', height: '', color: '#3b82f6', isRail: false }
@@ -195,9 +196,63 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate }) {
   )
 }
 
+function isSameComponent(a, b) {
+  return (
+    a.name.trim().toLowerCase() === b.name.trim().toLowerCase() &&
+    a.width === b.width &&
+    a.height === b.height &&
+    a.color === b.color &&
+    Boolean(a.isRail) === Boolean(b.isRail)
+  )
+}
+
 export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDelete }) {
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState(emptyDraft)
+  const [importError, setImportError] = useState('')
+  const [importMessage, setImportMessage] = useState('')
+  const fileInputRef = useRef(null)
+
+  function handleExportLibrary() {
+    exportLibraryToFile(library)
+  }
+
+  function handleImportClick() {
+    setImportError('')
+    setImportMessage('')
+    fileInputRef.current?.click()
+  }
+
+  function handleFileChange(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const components = parseLibraryFile(reader.result)
+        const newOnes = components.filter((c) => !library.some((existing) => isSameComponent(c, existing)))
+        newOnes.forEach((c) => onAdd(c))
+
+        setImportError('')
+        const skipped = components.length - newOnes.length
+        setImportMessage(
+          skipped > 0
+            ? `Imported ${newOnes.length} new component${newOnes.length === 1 ? '' : 's'}; skipped ${skipped} already in your library.`
+            : `Imported ${newOnes.length} component${newOnes.length === 1 ? '' : 's'}.`,
+        )
+      } catch (err) {
+        setImportMessage('')
+        setImportError(err.message)
+      }
+    }
+    reader.onerror = () => {
+      setImportMessage('')
+      setImportError('Could not read that file.')
+    }
+    reader.readAsText(file)
+  }
 
   function handleAddSubmit(e) {
     e.preventDefault()
@@ -222,20 +277,49 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-neutral-700 bg-neutral-800/60">
-      <div className="flex items-center justify-between border-b border-neutral-700 px-3 py-2.5">
-        <h2 className="text-sm font-semibold">Components</h2>
-        {!adding && (
+      <div className="border-b border-neutral-700 px-3 py-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Components</h2>
+          {!adding && (
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(emptyDraft)
+                setAdding(true)
+              }}
+              className="rounded bg-blue-600 px-2 py-1 text-xs font-medium hover:bg-blue-500"
+            >
+              + Add
+            </button>
+          )}
+        </div>
+        <div className="mt-1.5 flex items-center gap-2">
           <button
             type="button"
-            onClick={() => {
-              setDraft(emptyDraft)
-              setAdding(true)
-            }}
-            className="rounded bg-blue-600 px-2 py-1 text-xs font-medium hover:bg-blue-500"
+            onClick={handleExportLibrary}
+            title="Download this library as a file you can share"
+            className="rounded border border-neutral-600 px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
           >
-            + Add
+            Export library
           </button>
-        )}
+          <button
+            type="button"
+            onClick={handleImportClick}
+            title="Add components from someone else's library file"
+            className="rounded border border-neutral-600 px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
+          >
+            Import library&hellip;
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </div>
+        {importError && <p className="mt-1.5 text-xs text-red-400">{importError}</p>}
+        {importMessage && <p className="mt-1.5 text-xs text-neutral-400">{importMessage}</p>}
       </div>
 
       <div className="flex-1 space-y-1 overflow-y-auto p-2">

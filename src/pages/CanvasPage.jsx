@@ -2,6 +2,7 @@ import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import ComponentLibrarySidebar from '../components/ComponentLibrarySidebar'
+import Minimap from '../components/Minimap'
 import PanelCanvas from '../components/PanelCanvas'
 import PartsListPanel from '../components/PartsListPanel'
 import RailExternalRuler, { RULER_WIDTH } from '../components/RailExternalRuler'
@@ -12,6 +13,7 @@ import { useCanvasDnd } from '../hooks/useCanvasDnd'
 import { useElementSize } from '../hooks/useElementSize'
 import { useLocalStorageState } from '../hooks/useLocalStorageState'
 import { usePanelLayout } from '../hooks/usePanelLayout'
+import { useZoomPan } from '../hooks/useZoomPan'
 import { defaultComponents } from '../lib/defaultComponents'
 import { computePartsList } from '../lib/partsList'
 import { exportProjectToFile } from '../lib/projectFile'
@@ -64,10 +66,15 @@ export default function CanvasPage() {
 
   const availableWidth = containerSize.width - PADDING * 2 - RULER_WIDTH
   const availableHeight = containerSize.height - PADDING * 2
-  const scale =
+  const fitScale =
     panelWidth > 0 && panelHeight > 0 && availableWidth > 0 && availableHeight > 0
       ? Math.min(availableWidth / panelWidth, availableHeight / panelHeight)
       : 0
+
+  const zoomPan = useZoomPan(containerRef, fitScale)
+  const scale = zoomPan.scale
+  const isZoomedBeyondFit =
+    scale > 0 && (panelWidth * scale > availableWidth || panelHeight * scale > availableHeight)
 
   const dnd = useCanvasDnd({ panelWidth, panelHeight, scale, canvasRef, layout, gridSnapEnabled })
 
@@ -112,6 +119,24 @@ export default function CanvasPage() {
         return
       }
 
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        zoomPan.zoomIn()
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault()
+        zoomPan.zoomOut()
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault()
+        zoomPan.resetZoom()
+        return
+      }
+
       if (layout.selectedIds.size === 0) return
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -123,7 +148,7 @@ export default function CanvasPage() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [layout])
+  }, [layout, zoomPan])
 
   function handleAdd(component) {
     setLibrary((prev) => [...prev, { id: crypto.randomUUID(), ...component }])
@@ -302,6 +327,32 @@ export default function CanvasPage() {
             >
               Repeat{layout.lastPlacement ? ` ×${layout.lastPlacement.quantity}` : ''}
             </button>
+            <div className="flex items-center gap-1 rounded border border-neutral-600">
+              <button
+                type="button"
+                onClick={zoomPan.zoomOut}
+                title="Zoom out (Ctrl+Scroll or Ctrl+-)"
+                className="px-2 py-1.5 text-sm hover:bg-neutral-800"
+              >
+                &minus;
+              </button>
+              <button
+                type="button"
+                onClick={zoomPan.resetZoom}
+                title="Reset to fit (Ctrl+0)"
+                className="min-w-14 px-1 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800"
+              >
+                {Math.round(zoomPan.zoom * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={zoomPan.zoomIn}
+                title="Zoom in (Ctrl+Scroll or Ctrl++)"
+                className="px-2 py-1.5 text-sm hover:bg-neutral-800"
+              >
+                +
+              </button>
+            </div>
             <button
               type="button"
               onClick={handleSaveClick}
@@ -326,30 +377,46 @@ export default function CanvasPage() {
             </button>
           </header>
 
-          <div ref={containerRef} className="flex flex-1 items-center justify-center overflow-hidden">
-            {scale > 0 && (
-              <RailExternalRuler
-                rails={layout.placedComponents.filter((c) => c.isRail)}
+          <div className="relative flex-1 overflow-hidden">
+            <div ref={containerRef} onScroll={zoomPan.handleScroll} className="h-full w-full overflow-auto">
+              <div className="flex min-h-full min-w-full items-center justify-center p-8">
+                {scale > 0 && (
+                  <RailExternalRuler
+                    rails={layout.placedComponents.filter((c) => c.isRail)}
+                    panelHeight={panelHeight}
+                    scale={scale}
+                    useFraction={useFraction}
+                  />
+                )}
+                <PanelCanvas
+                  canvasRef={canvasRef}
+                  panelWidth={panelWidth}
+                  panelHeight={panelHeight}
+                  scale={scale}
+                  placedComponents={layout.placedComponents}
+                  selectedIds={layout.selectedIds}
+                  overlappingIds={layout.overlappingIds}
+                  dragGhost={dnd.dragGhost}
+                  onSelect={layout.select}
+                  onClearSelection={layout.clearSelection}
+                  useFraction={useFraction}
+                  lastPlacement={layout.lastPlacement}
+                  onRepeatPlacement={layout.repeatLastPlacement}
+                />
+              </div>
+            </div>
+
+            {isZoomedBeyondFit && (
+              <Minimap
+                placedComponents={layout.placedComponents}
+                panelWidth={panelWidth}
                 panelHeight={panelHeight}
                 scale={scale}
-                useFraction={useFraction}
+                scrollPos={zoomPan.scrollPos}
+                viewportWidth={containerSize.width}
+                viewportHeight={containerSize.height}
               />
             )}
-            <PanelCanvas
-              canvasRef={canvasRef}
-              panelWidth={panelWidth}
-              panelHeight={panelHeight}
-              scale={scale}
-              placedComponents={layout.placedComponents}
-              selectedIds={layout.selectedIds}
-              overlappingIds={layout.overlappingIds}
-              dragGhost={dnd.dragGhost}
-              onSelect={layout.select}
-              onClearSelection={layout.clearSelection}
-              useFraction={useFraction}
-              lastPlacement={layout.lastPlacement}
-              onRepeatPlacement={layout.repeatLastPlacement}
-            />
           </div>
 
           <SelectionInfoBar

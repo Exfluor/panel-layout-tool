@@ -478,6 +478,7 @@ export default function CanvasPage() {
                   overlappingIds={layout.overlappingIds}
                   dragGhost={dnd.dragGhost}
                   onSelect={layout.select}
+                  onSelectByIds={layout.selectByIds}
                   onClearSelection={layout.clearSelection}
                   onToggleLock={layout.toggleLock}
                   onMoveComponentBy={layout.moveComponentBy}

@@ -121,9 +121,16 @@ export function usePanelLayout(initialComponents = []) {
     })
   }
 
-  function selectByIds(ids) {
+  function selectByIds(ids, { additive = false } = {}) {
     setLastPlacement(null)
-    setSelectedIds(new Set(ids))
+    setSelectedIds((prev) => {
+      if (additive) {
+        const next = new Set(prev)
+        ids.forEach((id) => next.add(id))
+        return next
+      }
+      return new Set(ids)
+    })
   }
 
   function select(id, { additive = false } = {}) {

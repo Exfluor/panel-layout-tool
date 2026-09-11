@@ -1,3 +1,4 @@
+import { useMarqueeSelect } from '../hooks/useMarqueeSelect'
 import { getBounds, getEffectiveSize } from '../lib/geometry'
 import { formatInches } from '../lib/formatInches'
 import PartDimensionGuides from './PartDimensionGuides'
@@ -116,6 +117,7 @@ export default function PanelCanvas({
   overlappingIds,
   dragGhost,
   onSelect,
+  onSelectByIds,
   onClearSelection,
   onToggleLock,
   onMoveComponentBy,
@@ -124,6 +126,13 @@ export default function PanelCanvas({
   lastPlacement,
   onRepeatPlacement,
 }) {
+  const { marqueeRect, handlePointerDown } = useMarqueeSelect({
+    canvasRef,
+    placedComponents,
+    scale,
+    onSelect: onSelectByIds,
+  })
+
   if (scale <= 0) return null
 
   const measuredComponents = getMeasuredComponents(placedComponents, selectedIds, dragGhost, railMeasureMode)
@@ -136,6 +145,7 @@ export default function PanelCanvas({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClearSelection()
       }}
+      onPointerDown={handlePointerDown}
       className="relative border border-neutral-500"
       style={{
         width: panelWidth * scale,
@@ -289,6 +299,18 @@ export default function PanelCanvas({
             </button>
           )
         })()}
+
+      {marqueeRect && (
+        <div
+          className="pointer-events-none absolute z-30 border border-blue-400 bg-blue-400/15"
+          style={{
+            left: marqueeRect.left,
+            top: marqueeRect.top,
+            width: marqueeRect.width,
+            height: marqueeRect.height,
+          }}
+        />
+      )}
     </div>
   )
 }

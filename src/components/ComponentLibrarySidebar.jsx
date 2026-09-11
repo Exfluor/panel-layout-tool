@@ -257,7 +257,13 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
   )
 }
 
-function FolderHeader({ folder, count, onToggleCollapse, onRename, onDelete }) {
+const FOLDER_COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#fb7185', '#a78bfa', '#22d3ee', '#fb923c', '#a3e635']
+
+function getFolderColor(index) {
+  return FOLDER_COLORS[index % FOLDER_COLORS.length]
+}
+
+function FolderHeader({ folder, color, count, onToggleCollapse, onRename, onDelete }) {
   const [renaming, setRenaming] = useState(false)
   const [nameDraft, setNameDraft] = useState(folder.name)
   const { setNodeRef, isOver } = useDroppable({ id: folder.id, data: { type: 'folder' } })
@@ -301,11 +307,12 @@ function FolderHeader({ folder, count, onToggleCollapse, onRename, onDelete }) {
       <button
         type="button"
         onClick={onToggleCollapse}
-        className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-semibold text-neutral-300"
+        className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
       >
         <span className="inline-block w-3 text-neutral-500">{folder.collapsed ? '▸' : '▾'}</span>
-        <span className="truncate">{folder.name}</span>
-        <span className="text-neutral-500">({count})</span>
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <span className="truncate text-sm font-bold text-neutral-100">{folder.name}</span>
+        <span className="text-xs text-neutral-500">({count})</span>
       </button>
       <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100">
         <button
@@ -332,7 +339,7 @@ function UncategorizedHeader() {
   return (
     <div
       ref={setNodeRef}
-      className={`rounded px-1 py-1 text-xs font-semibold text-neutral-400 ${isOver ? 'bg-blue-500/20 ring-1 ring-blue-400' : ''}`}
+      className={`rounded px-1 py-1 text-xs font-semibold tracking-wide text-neutral-500 uppercase ${isOver ? 'bg-blue-500/20 ring-1 ring-blue-400' : ''}`}
     >
       Uncategorized
     </div>
@@ -551,12 +558,14 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
           />
         )}
 
-        {folders.map((folder) => {
+        {folders.map((folder, index) => {
           const items = componentsInFolder(folder.id)
+          const color = getFolderColor(index)
           return (
-            <div key={folder.id} className="mb-1">
+            <div key={folder.id} className="mb-1.5">
               <FolderHeader
                 folder={folder}
+                color={color}
                 count={items.length}
                 onToggleCollapse={() => onUpdate(folder.id, { collapsed: !folder.collapsed })}
                 onRename={(name) => onUpdate(folder.id, { name })}
@@ -564,7 +573,10 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
               />
               {!folder.collapsed && (
                 <SortableContext items={items.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-1 pl-2">
+                  <div
+                    className="ml-1.5 space-y-1 border-l-2 py-1 pl-2"
+                    style={{ borderColor: color, backgroundColor: `${color}14` }}
+                  >
                     {items.length === 0 ? (
                       <p className="px-2 py-2 text-center text-[10px] text-neutral-500">Drag a component here</p>
                     ) : (

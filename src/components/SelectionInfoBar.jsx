@@ -5,6 +5,7 @@ export default function SelectionInfoBar({
   onRotate,
   onGroup,
   onUngroup,
+  onCenter,
   onCopy,
   onPaste,
   hasClipboard,
@@ -87,6 +88,15 @@ export default function SelectionInfoBar({
               Group
             </button>
           ))}
+        {selected.length > 1 && (
+          <button
+            type="button"
+            onClick={onCenter}
+            className="rounded border border-neutral-600 px-3 py-1 text-xs hover:bg-neutral-800"
+          >
+            Center
+          </button>
+        )}
         <button
           type="button"
           onClick={onDelete}

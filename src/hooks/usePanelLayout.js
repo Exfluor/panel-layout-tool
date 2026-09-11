@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react'
-import { getBounds, rectsOverlap } from '../lib/geometry'
+import { getBounds, getEffectiveSize, rectsOverlap } from '../lib/geometry'
 
 const MAX_HISTORY = 5
 
 export function usePanelLayout(initialComponents = []) {
   const [placedComponents, setPlacedComponentsRaw] = useState(initialComponents)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
+  // The most recently added-to-selection component — used as the fixed
+  // reference point when centering a multi-selection (everything else moves
+  // to match its center, rather than it moving too).
+  const [anchorId, setAnchorId] = useState(null)
   const [history, setHistory] = useState([])
   const [lastPlacement, setLastPlacement] = useState(null)
   const [clipboard, setClipboard] = useState(null)
@@ -121,6 +125,35 @@ export function usePanelLayout(initialComponents = []) {
     })
   }
 
+  // Lines up the selected components' vertical centers (same row height),
+  // leaving their left/right position untouched. The last component added to
+  // the selection stays put as the reference; everything else moves to match
+  // its center. Falls back to the average center if that anchor isn't
+  // (any longer) part of the selection.
+  function centerSelectedHorizontally() {
+    if (selectedIds.size < 2) return
+    setLastPlacement(null)
+
+    const selected = placedComponents.filter((c) => selectedIds.has(c.id))
+    const anchor = selected.find((c) => c.id === anchorId)
+    const targetCenter = anchor
+      ? anchor.y + getEffectiveSize(anchor).height / 2
+      : selected.reduce((sum, c) => sum + c.y + getEffectiveSize(c).height / 2, 0) / selected.length
+
+    setPlacedComponents((prev) => {
+      const moved = prev.map((c) => {
+        if (!selectedIds.has(c.id) || c.locked) return c
+        return { ...c, y: targetCenter - getEffectiveSize(c).height / 2 }
+      })
+      return moved.map((c) => {
+        if (!selectedIds.has(c.id) || c.locked || c.isRail) return c
+        const bounds = getBounds(c)
+        const rail = moved.find((other) => other.isRail && rectsOverlap(bounds, getBounds(other)))
+        return { ...c, mountedOnRailId: rail?.id ?? null }
+      })
+    })
+  }
+
   function selectByIds(ids, { additive = false } = {}) {
     setLastPlacement(null)
     setSelectedIds((prev) => {
@@ -131,6 +164,7 @@ export function usePanelLayout(initialComponents = []) {
       }
       return new Set(ids)
     })
+    setAnchorId(ids.length > 0 ? ids[ids.length - 1] : null)
   }
 
   function select(id, { additive = false } = {}) {
@@ -142,20 +176,24 @@ export function usePanelLayout(initialComponents = []) {
       ? placedComponents.filter((c) => c.groupId === target.groupId).map((c) => c.id)
       : [id]
 
-    setSelectedIds((prev) => {
-      if (additive) {
+    if (additive) {
+      const allSelected = groupIds.every((gid) => selectedIds.has(gid))
+      setSelectedIds((prev) => {
         const next = new Set(prev)
-        const allSelected = groupIds.every((gid) => next.has(gid))
         groupIds.forEach((gid) => (allSelected ? next.delete(gid) : next.add(gid)))
         return next
-      }
-      return new Set(groupIds)
-    })
+      })
+      setAnchorId(allSelected ? null : id)
+    } else {
+      setSelectedIds(new Set(groupIds))
+      setAnchorId(id)
+    }
   }
 
   function clearSelection() {
     setLastPlacement(null)
     setSelectedIds(new Set())
+    setAnchorId(null)
   }
 
   function deleteSelected() {
@@ -278,6 +316,7 @@ export function usePanelLayout(initialComponents = []) {
     rotateSelected,
     groupSelected,
     ungroupSelected,
+    centerSelectedHorizontally,
     toggleLock,
     copySelected,
     pasteClipboard,

@@ -510,6 +510,7 @@ export default function CanvasPage() {
             onRotate={layout.rotateSelected}
             onGroup={layout.groupSelected}
             onUngroup={layout.ungroupSelected}
+            onCenter={layout.centerSelectedHorizontally}
             onCopy={layout.copySelected}
             onPaste={layout.pasteClipboard}
             hasClipboard={layout.hasClipboard}

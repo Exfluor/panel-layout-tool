@@ -266,7 +266,15 @@ function getFolderColor(index) {
 function FolderHeader({ folder, color, count, onToggleCollapse, onRename, onDelete }) {
   const [renaming, setRenaming] = useState(false)
   const [nameDraft, setNameDraft] = useState(folder.name)
-  const { setNodeRef, isOver } = useDroppable({ id: folder.id, data: { type: 'folder' } })
+  const { setNodeRef: setDropNodeRef, isOver } = useDroppable({ id: folder.id, data: { type: 'folder' } })
+  const {
+    attributes: sortAttributes,
+    listeners: sortListeners,
+    setNodeRef: setSortNodeRef,
+    transform,
+    transition,
+    isDragging: isSorting,
+  } = useSortable({ id: folder.id, data: { type: 'sort' } })
 
   if (renaming) {
     return (
@@ -301,9 +309,26 @@ function FolderHeader({ folder, color, count, onToggleCollapse, onRename, onDele
 
   return (
     <div
-      ref={setNodeRef}
-      className={`group flex items-center justify-between rounded px-1 py-1 ${isOver ? 'bg-blue-500/20 ring-1 ring-blue-400' : 'hover:bg-neutral-800/60'}`}
+      ref={(node) => {
+        setDropNodeRef(node)
+        setSortNodeRef(node)
+      }}
+      className={`group flex items-center justify-between rounded px-1 py-1 ${isOver ? 'bg-blue-500/20 ring-1 ring-blue-400' : 'hover:bg-neutral-800/60'} ${isSorting ? 'z-10 opacity-60' : ''}`}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
     >
+      <button
+        type="button"
+        {...sortAttributes}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          sortListeners?.onPointerDown?.(e)
+        }}
+        className="shrink-0 cursor-grab touch-none text-neutral-500 hover:text-neutral-300"
+        style={{ touchAction: 'none' }}
+        title="Drag to reorder folders"
+      >
+        <GripIcon />
+      </button>
       <button
         type="button"
         onClick={onToggleCollapse}
@@ -561,36 +586,38 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
           />
         )}
 
-        {folders.map((folder, index) => {
-          const items = componentsInFolder(folder.id)
-          const color = getFolderColor(index)
-          return (
-            <div key={folder.id} className="mb-1.5">
-              <FolderHeader
-                folder={folder}
-                color={color}
-                count={items.length}
-                onToggleCollapse={() => onUpdate(folder.id, { collapsed: !folder.collapsed })}
-                onRename={(name) => onUpdate(folder.id, { name })}
-                onDelete={() => handleDeleteFolder(folder.id)}
-              />
-              {!folder.collapsed && (
-                <SortableContext items={items.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-                  <div
-                    className="ml-1.5 space-y-1 border-l-2 py-1 pl-2"
-                    style={{ borderColor: color, backgroundColor: `${color}14` }}
-                  >
-                    {items.length === 0 ? (
-                      <p className="px-2 py-2 text-center text-[10px] text-neutral-500">Drag a component here</p>
-                    ) : (
-                      items.map(renderRow)
-                    )}
-                  </div>
-                </SortableContext>
-              )}
-            </div>
-          )
-        })}
+        <SortableContext items={folders.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+          {folders.map((folder, index) => {
+            const items = componentsInFolder(folder.id)
+            const color = getFolderColor(index)
+            return (
+              <div key={folder.id} className="mb-1.5">
+                <FolderHeader
+                  folder={folder}
+                  color={color}
+                  count={items.length}
+                  onToggleCollapse={() => onUpdate(folder.id, { collapsed: !folder.collapsed })}
+                  onRename={(name) => onUpdate(folder.id, { name })}
+                  onDelete={() => handleDeleteFolder(folder.id)}
+                />
+                {!folder.collapsed && (
+                  <SortableContext items={items.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                    <div
+                      className="ml-1.5 space-y-1 border-l-2 py-1 pl-2"
+                      style={{ borderColor: color, backgroundColor: `${color}14` }}
+                    >
+                      {items.length === 0 ? (
+                        <p className="px-2 py-2 text-center text-[10px] text-neutral-500">Drag a component here</p>
+                      ) : (
+                        items.map(renderRow)
+                      )}
+                    </div>
+                  </SortableContext>
+                )}
+              </div>
+            )
+          })}
+        </SortableContext>
 
         {folders.length > 0 && <UncategorizedHeader />}
 

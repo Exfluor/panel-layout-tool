@@ -271,6 +271,20 @@ export default function CanvasPage() {
       const activeItem = library.find((c) => c.id === event.active.id)
       if (!activeItem) return
 
+      // Dragging a folder itself just reorders it among the other folders —
+      // folders don't file into other folders or mix with components.
+      if (activeItem.isFolder) {
+        const overFolder = library.find((c) => c.id === overId && c.isFolder)
+        if (!overFolder || overFolder.id === activeItem.id) return
+        setLibrary((prev) => {
+          const oldIndex = prev.findIndex((c) => c.id === activeItem.id)
+          const newIndex = prev.findIndex((c) => c.id === overFolder.id)
+          if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return prev
+          return arrayMove(prev, oldIndex, newIndex)
+        })
+        return
+      }
+
       // Dropped directly on a folder header (or the Uncategorized zone) just
       // re-files it there. Dropped on another component reorders alongside
       // it, inheriting that component's folder — so one drag can both move

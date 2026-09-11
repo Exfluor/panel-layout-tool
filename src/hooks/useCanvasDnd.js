@@ -64,7 +64,23 @@ export function useCanvasDnd({
     if (data.type === 'placed') {
       const primary = layout.placedComponents.find((c) => c.id === data.id)
       if (!primary || primary.locked) return // locked items can't be dragged at all
-      const groupIds = layout.getMovableGroupIds(primary)
+
+      // Dragging any member of a multi-selection moves the whole selection
+      // together (each item's own group/rail-mounted parts come along too).
+      // Dragging an item that isn't part of the current selection just moves
+      // that item (and its own group) as before.
+      let groupIds
+      if (layout.selectedIds.has(primary.id) && layout.selectedIds.size > 1) {
+        const idSet = new Set()
+        layout.selectedIds.forEach((id) => {
+          const c = layout.placedComponents.find((cc) => cc.id === id)
+          if (!c || c.locked) return
+          layout.getMovableGroupIds(c).forEach((gid) => idSet.add(gid))
+        })
+        groupIds = Array.from(idSet)
+      } else {
+        groupIds = layout.getMovableGroupIds(primary)
+      }
 
       const origins = {}
       groupIds.forEach((id) => {

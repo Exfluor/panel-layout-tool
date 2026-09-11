@@ -30,6 +30,7 @@ export default function PlacedComponent({ component, x, y, scale, selected, over
   // outline/text so the part stays readable regardless of its color.
   const dark = isDarkColor(component.color)
   const textColorClass = dark ? 'text-white/90' : 'text-black/80'
+  const mutedTextColorClass = dark ? 'text-white/60' : 'text-black/50'
 
   let borderClass = dark ? 'border border-white/50' : 'border border-black/30'
   if (overlapping) borderClass = 'border-2 border-red-500'
@@ -66,7 +67,7 @@ export default function PlacedComponent({ component, x, y, scale, selected, over
         </span>
       </div>
 
-      {isTruncated && hovered && (
+      {hovered && (isTruncated || component.partNumber) && (
         <div
           className={`pointer-events-none absolute z-20 rounded px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap shadow-lg ${textColorClass} ${dark ? 'border border-white/50' : 'border border-black/30'}`}
           style={{
@@ -77,6 +78,9 @@ export default function PlacedComponent({ component, x, y, scale, selected, over
           }}
         >
           {component.name}
+          {component.partNumber && (
+            <div className={`text-[10px] font-normal ${mutedTextColorClass}`}>{component.partNumber}</div>
+          )}
         </div>
       )}
     </>

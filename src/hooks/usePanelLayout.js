@@ -50,6 +50,7 @@ export function usePanelLayout(initialComponents = []) {
         const newComponent = {
           id: ids[i],
           name: component.name,
+          partNumber: component.partNumber ?? '',
           width: component.width,
           height: component.height,
           color: component.color,

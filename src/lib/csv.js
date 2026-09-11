@@ -4,8 +4,8 @@ function escapeCsvCell(value) {
 }
 
 export function partsListToCsv(partsList, notes) {
-  const header = ['Name', 'Width (in)', 'Height (in)', 'Quantity', 'Notes']
-  const rows = partsList.map((p) => [p.name, p.width, p.height, p.quantity, notes[p.key] ?? ''])
+  const header = ['Name', 'Part #', 'Width (in)', 'Height (in)', 'Quantity', 'Notes']
+  const rows = partsList.map((p) => [p.name, p.partNumber ?? '', p.width, p.height, p.quantity, notes[p.key] ?? ''])
   return [header, ...rows].map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')
 }
 

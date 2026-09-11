@@ -40,7 +40,8 @@ export default function SelectionInfoBar({
       <div className="text-neutral-300">
         {selected.length === 1 ? (
           <span>
-            <span className="font-medium text-neutral-100">{selected[0].name}</span>{' '}
+            <span className="font-medium text-neutral-100">{selected[0].name}</span>
+            {selected[0].partNumber && <span className="text-neutral-500"> ({selected[0].partNumber})</span>}{' '}
             &mdash; {selected[0].width}&Prime; &times; {selected[0].height}&Prime;, rotated {selected[0].rotation}&deg;
           </span>
         ) : (

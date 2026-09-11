@@ -20,7 +20,7 @@ function GripIcon(props) {
   )
 }
 
-const emptyDraft = { name: '', width: '', height: '', color: '#3b82f6', isRail: false, folderId: null }
+const emptyDraft = { name: '', partNumber: '', width: '', height: '', color: '#3b82f6', isRail: false, folderId: null }
 
 function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folders }) {
   return (
@@ -35,6 +35,13 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
         onChange={(e) => onChange({ ...draft, name: e.target.value })}
         className="w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
         autoFocus
+      />
+      <input
+        type="text"
+        placeholder="Manufacturer part # (optional)"
+        value={draft.partNumber}
+        onChange={(e) => onChange({ ...draft, partNumber: e.target.value })}
+        className="w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
       />
       <div className="flex gap-2">
         <label className="w-1/2 text-xs text-neutral-400">
@@ -132,6 +139,7 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
   function startEdit() {
     setDraft({
       name: component.name,
+      partNumber: component.partNumber ?? '',
       width: String(component.width),
       height: String(component.height),
       color: component.color,
@@ -149,6 +157,7 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
 
     onUpdate(component.id, {
       name: draft.name.trim(),
+      partNumber: draft.partNumber.trim(),
       width,
       height,
       color: draft.color,
@@ -206,6 +215,9 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
             <span className="ml-1.5 rounded bg-neutral-700 px-1 py-0.5 text-[10px] font-medium text-neutral-300">
               RAIL
             </span>
+          )}
+          {component.partNumber && (
+            <div className="text-[10px] font-normal text-neutral-500">{component.partNumber}</div>
           )}
         </div>
       </div>
@@ -374,6 +386,7 @@ function UncategorizedHeader() {
 function isSameComponent(a, b) {
   return (
     a.name.trim().toLowerCase() === b.name.trim().toLowerCase() &&
+    (a.partNumber ?? '').trim().toLowerCase() === (b.partNumber ?? '').trim().toLowerCase() &&
     a.width === b.width &&
     a.height === b.height &&
     a.color === b.color &&
@@ -447,6 +460,7 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
 
     onAdd({
       name: draft.name.trim(),
+      partNumber: draft.partNumber.trim(),
       width,
       height,
       color: draft.color,
@@ -460,6 +474,7 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
   function handleDuplicate(component) {
     onAdd({
       name: `${component.name} (copy)`,
+      partNumber: component.partNumber ?? '',
       width: component.width,
       height: component.height,
       color: component.color,

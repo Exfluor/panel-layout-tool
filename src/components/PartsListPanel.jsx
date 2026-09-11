@@ -42,6 +42,7 @@ export default function PartsListPanel({ partsList, notes, onNotesChange, select
               <thead>
                 <tr className="text-xs text-neutral-400">
                   <th className="py-1.5 pr-3 font-medium">Name</th>
+                  <th className="py-1.5 pr-3 font-medium">Part #</th>
                   <th className="py-1.5 pr-3 font-medium">Dimensions</th>
                   <th className="py-1.5 pr-3 font-medium">Qty</th>
                   <th className="py-1.5 font-medium">Notes</th>
@@ -66,6 +67,7 @@ export default function PartsListPanel({ partsList, notes, onNotesChange, select
                         />
                         {part.name}
                       </td>
+                      <td className="py-1.5 pr-3 text-neutral-400">{part.partNumber || '—'}</td>
                       <td className="py-1.5 pr-3 text-neutral-300">
                         {part.width}&Prime; &times; {part.height}&Prime;
                       </td>
@@ -85,7 +87,7 @@ export default function PartsListPanel({ partsList, notes, onNotesChange, select
               </tbody>
               <tfoot>
                 <tr className="border-t border-neutral-700 text-xs text-neutral-400">
-                  <td className="py-1.5" colSpan={2}>
+                  <td className="py-1.5" colSpan={3}>
                     Total
                   </td>
                   <td className="py-1.5">{totalCount}</td>

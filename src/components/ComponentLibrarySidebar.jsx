@@ -356,7 +356,7 @@ function isSameComponent(a, b) {
   )
 }
 
-export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDelete }) {
+export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDelete, width }) {
   const [adding, setAdding] = useState(false)
   const [addingFolder, setAddingFolder] = useState(false)
   const [folderNameDraft, setFolderNameDraft] = useState('')
@@ -470,7 +470,10 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
   }
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-r border-neutral-700 bg-neutral-800/60">
+    <aside
+      className="flex shrink-0 flex-col border-r border-neutral-700 bg-neutral-800/60"
+      style={{ width }}
+    >
       <div className="border-b border-neutral-700 px-3 py-2.5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Components</h2>

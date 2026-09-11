@@ -14,6 +14,7 @@ import { useCanvasDnd } from '../hooks/useCanvasDnd'
 import { useElementSize } from '../hooks/useElementSize'
 import { useLocalStorageState } from '../hooks/useLocalStorageState'
 import { usePanelLayout } from '../hooks/usePanelLayout'
+import { useResizableWidth } from '../hooks/useResizableWidth'
 import { useZoomPan } from '../hooks/useZoomPan'
 import { defaultComponents } from '../lib/defaultComponents'
 import { computePartsList } from '../lib/partsList'
@@ -45,6 +46,7 @@ export default function CanvasPage() {
   const [partNotes, setPartNotes] = useState(() => project?.partNotes ?? {})
   const layout = usePanelLayout(project?.placedComponents ?? [])
 
+  const sidebar = useResizableWidth('panelBuilder.sidebarWidth', 288, { min: 220, max: 480 })
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true)
   const [useFraction, setUseFraction] = useState(true)
   const [railMeasureMode, setRailMeasureMode] = useState('center')
@@ -324,6 +326,13 @@ export default function CanvasPage() {
           onAdd={handleAdd}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
+          width={sidebar.width}
+        />
+
+        <div
+          onMouseDown={sidebar.startResize}
+          className="w-1 shrink-0 cursor-col-resize bg-neutral-700 hover:bg-blue-500"
+          title="Drag to resize"
         />
 
         <div className="flex flex-1 flex-col">

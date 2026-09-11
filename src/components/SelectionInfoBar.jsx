@@ -12,7 +12,7 @@ export default function SelectionInfoBar({
   const selected = placedComponents.filter((c) => selectedIds.has(c.id))
   if (selected.length === 0) {
     return (
-      <div className="flex items-center justify-between border-t border-neutral-700 px-4 py-2 text-xs text-neutral-500">
+      <div className="flex h-11 items-center justify-between border-t border-neutral-700 px-4 text-xs text-neutral-500">
         <span>Click a placed component to select it. Delete/R to remove or rotate.</span>
         {hasClipboard && (
           <button
@@ -34,7 +34,7 @@ export default function SelectionInfoBar({
     placedComponents.filter((c) => c.groupId === groupId).length === selected.length
 
   return (
-    <div className="flex items-center justify-between border-t border-neutral-700 px-4 py-2 text-sm">
+    <div className="flex h-11 items-center justify-between border-t border-neutral-700 px-4 text-sm">
       <div className="text-neutral-300">
         {selected.length === 1 ? (
           <span>

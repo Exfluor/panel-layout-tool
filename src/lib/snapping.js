@@ -17,12 +17,14 @@ function snapAxis(value, candidates, threshold) {
   return best
 }
 
-// A rail snapping to the panel's center, and a part snapping to the
-// centerline of a rail it's near, are structural alignments (not just a
-// rounding convenience) — they stay live regardless of the grid-snap toggle.
-// Everything else (edges of other parts, panel walls, the 1/8" grid
-// fallback) only kicks in when gridSnapEnabled is on; off, the box moves
-// exactly with the pointer except for these, only clamped to stay in-panel.
+// A rail snapping to the panel's center, a part snapping to the centerline
+// of a rail it's near, and a part's left/right edges snapping flush against
+// a neighboring part's edges (how parts butt together with no gap along a
+// rail) are structural alignments (not just a rounding convenience) — they
+// stay live regardless of the grid-snap toggle. Everything else (top/bottom
+// stacking against other parts, panel walls, the 1/8" grid fallback) only
+// kicks in when gridSnapEnabled is on; off, the box moves exactly with the
+// pointer except for these, only clamped to stay in-panel.
 export function computeSnappedPosition({
   x,
   y,
@@ -44,6 +46,12 @@ export function computeSnappedPosition({
     alwaysCandidatesY.push({ value: panelHeight / 2 - height / 2 })
   }
   for (const other of others) {
+    alwaysCandidatesX.push(
+      { value: other.x },
+      { value: other.x + other.width },
+      { value: other.x - width },
+      { value: other.x + other.width - width },
+    )
     if (other.isRail) {
       alwaysCandidatesY.push({ value: other.y + other.height / 2 - height / 2, railId: other.id })
     }
@@ -57,12 +65,6 @@ export function computeSnappedPosition({
     const candidatesY = [{ value: 0 }, { value: panelHeight - height }, ...alwaysCandidatesY]
 
     for (const other of others) {
-      candidatesX.push(
-        { value: other.x },
-        { value: other.x + other.width },
-        { value: other.x - width },
-        { value: other.x + other.width - width },
-      )
       candidatesY.push(
         { value: other.y },
         { value: other.y + other.height },

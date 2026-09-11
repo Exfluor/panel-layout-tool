@@ -17,15 +17,12 @@ function snapAxis(value, candidates, threshold) {
   return best
 }
 
-// Snaps a dragged box to flush edges/alignment against other placed boxes and
-// the panel walls, then clamps it fully inside the panel. Parts mounted on a
-// rail (e.g. DIN rail) also snap to the rail's centerline; when that happens,
-// snappedRailId identifies which rail so the UI can show a guide line. A rail
-// itself also snaps to the panel's vertical center. When nothing nearby
-// claims an axis and gridSnapEnabled is on, it falls back to the nearest
-// 1/8" grid point — measured from `measureOffset` below `y` (whatever point
-// is actually displayed/labeled for this item) so the displayed number lands
-// cleanly on the grid, not just the raw top edge.
+// A rail snapping to the panel's center, and a part snapping to the
+// centerline of a rail it's near, are structural alignments (not just a
+// rounding convenience) — they stay live regardless of the grid-snap toggle.
+// Everything else (edges of other parts, panel walls, the 1/8" grid
+// fallback) only kicks in when gridSnapEnabled is on; off, the box moves
+// exactly with the pointer except for these, only clamped to stay in-panel.
 export function computeSnappedPosition({
   x,
   y,
@@ -39,36 +36,44 @@ export function computeSnappedPosition({
   gridSnapEnabled = true,
   measureOffset = 0,
 }) {
-  const candidatesX = [{ value: 0 }, { value: panelWidth - width }]
-  const candidatesY = [{ value: 0 }, { value: panelHeight - height }]
+  const alwaysCandidatesX = []
+  const alwaysCandidatesY = []
 
   if (centerInPanel) {
-    candidatesX.push({ value: panelWidth / 2 - width / 2 })
-    candidatesY.push({ value: panelHeight / 2 - height / 2 })
+    alwaysCandidatesX.push({ value: panelWidth / 2 - width / 2 })
+    alwaysCandidatesY.push({ value: panelHeight / 2 - height / 2 })
   }
-
   for (const other of others) {
-    candidatesX.push(
-      { value: other.x },
-      { value: other.x + other.width },
-      { value: other.x - width },
-      { value: other.x + other.width - width },
-    )
-    candidatesY.push(
-      { value: other.y },
-      { value: other.y + other.height },
-      { value: other.y - height },
-      { value: other.y + other.height - height },
-    )
     if (other.isRail) {
-      candidatesY.push({ value: other.y + other.height / 2 - height / 2, railId: other.id })
+      alwaysCandidatesY.push({ value: other.y + other.height / 2 - height / 2, railId: other.id })
     }
   }
 
-  let snappedX = snapAxis(x, candidatesX, threshold)
-  let snappedY = snapAxis(y, candidatesY, threshold)
+  let snappedX = snapAxis(x, alwaysCandidatesX, threshold)
+  let snappedY = snapAxis(y, alwaysCandidatesY, threshold)
 
   if (gridSnapEnabled) {
+    const candidatesX = [{ value: 0 }, { value: panelWidth - width }, ...alwaysCandidatesX]
+    const candidatesY = [{ value: 0 }, { value: panelHeight - height }, ...alwaysCandidatesY]
+
+    for (const other of others) {
+      candidatesX.push(
+        { value: other.x },
+        { value: other.x + other.width },
+        { value: other.x - width },
+        { value: other.x + other.width - width },
+      )
+      candidatesY.push(
+        { value: other.y },
+        { value: other.y + other.height },
+        { value: other.y - height },
+        { value: other.y + other.height - height },
+      )
+    }
+
+    snappedX = snapAxis(x, candidatesX, threshold)
+    snappedY = snapAxis(y, candidatesY, threshold)
+
     // X is measured/displayed edge-to-wall, so grid-snap the edge. Y grid-snaps
     // whatever point is actually displayed (measureOffset below y) — otherwise
     // a gridded top edge can produce an off-grid displayed value whenever the

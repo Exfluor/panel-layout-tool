@@ -154,6 +154,36 @@ export function usePanelLayout(initialComponents = []) {
     })
   }
 
+  // Slides the selected (unlocked) components flush against each other,
+  // left-to-right in their current order, closing any gaps between them
+  // without changing their vertical position. The leftmost one stays put.
+  function packSelectedHorizontally() {
+    setLastPlacement(null)
+
+    const selected = placedComponents
+      .filter((c) => selectedIds.has(c.id) && !c.locked)
+      .map((c) => ({ id: c.id, x: getBounds(c).x, width: getEffectiveSize(c).width }))
+      .sort((a, b) => a.x - b.x)
+    if (selected.length < 2) return
+
+    const targetX = new Map()
+    let cursor = selected[0].x
+    selected.forEach((c) => {
+      targetX.set(c.id, cursor)
+      cursor += c.width
+    })
+
+    setPlacedComponents((prev) => {
+      const moved = prev.map((c) => (targetX.has(c.id) ? { ...c, x: targetX.get(c.id) } : c))
+      return moved.map((c) => {
+        if (!targetX.has(c.id) || c.isRail) return c
+        const bounds = getBounds(c)
+        const rail = moved.find((other) => other.isRail && rectsOverlap(bounds, getBounds(other)))
+        return { ...c, mountedOnRailId: rail?.id ?? null }
+      })
+    })
+  }
+
   function selectByIds(ids, { additive = false } = {}) {
     setLastPlacement(null)
     setSelectedIds((prev) => {
@@ -317,6 +347,7 @@ export function usePanelLayout(initialComponents = []) {
     groupSelected,
     ungroupSelected,
     centerSelectedHorizontally,
+    packSelectedHorizontally,
     toggleLock,
     copySelected,
     pasteClipboard,

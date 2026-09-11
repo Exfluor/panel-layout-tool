@@ -6,6 +6,7 @@ export default function SelectionInfoBar({
   onGroup,
   onUngroup,
   onCenter,
+  onPack,
   onCopy,
   onPaste,
   hasClipboard,
@@ -95,6 +96,16 @@ export default function SelectionInfoBar({
             className="rounded border border-neutral-600 px-3 py-1 text-xs hover:bg-neutral-800"
           >
             Center
+          </button>
+        )}
+        {selected.length > 1 && (
+          <button
+            type="button"
+            onClick={onPack}
+            title="Slide selected parts flush against each other, closing gaps"
+            className="rounded border border-neutral-600 px-3 py-1 text-xs hover:bg-neutral-800"
+          >
+            Pack
           </button>
         )}
         <button

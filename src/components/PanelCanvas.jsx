@@ -302,7 +302,11 @@ export default function PanelCanvas({
 
       {marqueeRect && (
         <div
-          className="pointer-events-none absolute z-30 border border-blue-400 bg-blue-400/15"
+          className={
+            marqueeRect.mode === 'window'
+              ? 'pointer-events-none absolute z-30 border border-blue-400 bg-blue-400/15'
+              : 'pointer-events-none absolute z-30 border border-dashed border-emerald-400 bg-emerald-400/10'
+          }
           style={{
             left: marqueeRect.left,
             top: marqueeRect.top,

@@ -6,9 +6,9 @@ const MAX_HISTORY = 5
 export function usePanelLayout(initialComponents = []) {
   const [placedComponents, setPlacedComponentsRaw] = useState(initialComponents)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
-  // The most recently added-to-selection component — used as the fixed
-  // reference point when centering a multi-selection (everything else moves
-  // to match its center, rather than it moving too).
+  // The most recently added-to-selection component — the fixed reference
+  // point when centering a multi-selection, and (with exactly two selected)
+  // which one stays put when editing the gap distance between them.
   const [anchorId, setAnchorId] = useState(null)
   const [history, setHistory] = useState([])
   const [lastPlacement, setLastPlacement] = useState(null)
@@ -398,6 +398,7 @@ export function usePanelLayout(initialComponents = []) {
     getMovableGroupIds,
     resizeComponent,
     syncFromLibrary,
+    anchorId,
     select,
     selectByIds,
     clearSelection,

@@ -537,6 +537,7 @@ export default function CanvasPage() {
                   railMeasureMode={railMeasureMode}
                   lastPlacement={layout.lastPlacement}
                   onRepeatPlacement={layout.repeatLastPlacement}
+                  anchorId={layout.anchorId}
                 />
               </div>
             </div>

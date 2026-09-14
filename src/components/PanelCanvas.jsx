@@ -1,7 +1,8 @@
 import { useMarqueeSelect } from '../hooks/useMarqueeSelect'
 import { useResizeHandle } from '../hooks/useResizeHandle'
 import { getBounds, getEffectiveSize } from '../lib/geometry'
-import { formatInches } from '../lib/formatInches'
+import { formatInches as formatInchesValue } from '../lib/formatInches'
+import EditableLabel from './EditableLabel'
 import PartDimensionGuides from './PartDimensionGuides'
 import PlacedComponent from './PlacedComponent'
 import RailDragHandle from './RailDragHandle'
@@ -88,22 +89,28 @@ function getMeasuredComponents(placedComponents, selectedIds, dragGhost, railMea
 
 // When exactly two components are selected (and neither is mid-drag) and one
 // sits cleanly above the other, shows the vertical clearance between them —
-// e.g. the gap between a Panduit duct and the DIN rail below it.
-function getSelectionGap(placedComponents, selectedIds, dragGhost) {
+// e.g. the gap between a Panduit duct and the DIN rail below it. The
+// last-selected of the two (anchorId) stays fixed; editing the gap moves the
+// other one to match. If that mover is mounted on a rail, the move is
+// redirected to the rail itself (carrying everything mounted on it) instead
+// of detaching just the one selected part.
+function getSelectionGap(placedComponents, selectedIds, dragGhost, anchorId) {
   if (dragGhost || selectedIds.size !== 2) return null
-  const [a, b] = [...selectedIds].map((id) => placedComponents.find((c) => c.id === id))
+  const ids = [...selectedIds]
+  const a = placedComponents.find((c) => c.id === ids[0])
+  const b = placedComponents.find((c) => c.id === ids[1])
   if (!a || !b) return null
 
-  const boundsA = getBounds(a)
-  const boundsB = getBounds(b)
+  const upperCandidate = { ...getBounds(a), id: a.id }
+  const lowerCandidate = { ...getBounds(b), id: b.id }
   let upper = null
   let lower = null
-  if (boundsA.y + boundsA.height <= boundsB.y + 1e-6) {
-    upper = boundsA
-    lower = boundsB
-  } else if (boundsB.y + boundsB.height <= boundsA.y + 1e-6) {
-    upper = boundsB
-    lower = boundsA
+  if (upperCandidate.y + upperCandidate.height <= lowerCandidate.y + 1e-6) {
+    upper = upperCandidate
+    lower = lowerCandidate
+  } else if (lowerCandidate.y + lowerCandidate.height <= upperCandidate.y + 1e-6) {
+    upper = lowerCandidate
+    lower = upperCandidate
   } else {
     return null // vertically overlapping — no clean "gap" to show
   }
@@ -111,8 +118,25 @@ function getSelectionGap(placedComponents, selectedIds, dragGhost) {
   const gap = lower.y - (upper.y + upper.height)
   if (gap < 0.01) return null
 
+  const resolvedAnchorId = anchorId === upper.id || anchorId === lower.id ? anchorId : ids[ids.length - 1]
+  const anchorIsUpper = resolvedAnchorId === upper.id
+  const mover = (anchorIsUpper ? lower : upper).id === a.id ? a : b
+  const moveTarget = mover.mountedOnRailId
+    ? (placedComponents.find((c) => c.id === mover.mountedOnRailId) ?? mover)
+    : mover
+
   const lineX = (upper.x + upper.width / 2 + lower.x + lower.width / 2) / 2
-  return { lineX, topY: upper.y + upper.height, gap }
+  return {
+    lineX,
+    topY: upper.y + upper.height,
+    gap,
+    upperY: upper.y,
+    upperHeight: upper.height,
+    lowerY: lower.y,
+    anchorIsUpper,
+    moveTargetId: moveTarget.id,
+    editable: !moveTarget.locked,
+  }
 }
 
 export default function PanelCanvas({
@@ -135,6 +159,7 @@ export default function PanelCanvas({
   railMeasureMode,
   lastPlacement,
   onRepeatPlacement,
+  anchorId,
 }) {
   const { marqueeRect, handlePointerDown } = useMarqueeSelect({
     canvasRef,
@@ -156,7 +181,15 @@ export default function PanelCanvas({
 
   const measuredComponents = getMeasuredComponents(placedComponents, selectedIds, dragGhost, railMeasureMode)
   const measuredRails = measuredComponents.filter((c) => c.isRail)
-  const selectionGap = getSelectionGap(placedComponents, selectedIds, dragGhost)
+  const selectionGap = getSelectionGap(placedComponents, selectedIds, dragGhost, anchorId)
+  const formatInches = (value) => formatInchesValue(value, useFraction)
+
+  function handleEditGap(newGap) {
+    if (!selectionGap) return
+    const { anchorIsUpper, upperY, upperHeight, lowerY, moveTargetId } = selectionGap
+    const deltaY = anchorIsUpper ? upperY + upperHeight + newGap - lowerY : lowerY - newGap - upperHeight - upperY
+    onMoveComponentBy(moveTargetId, 0, deltaY)
+  }
 
   return (
     <div
@@ -293,15 +326,19 @@ export default function PanelCanvas({
             className="pointer-events-none absolute border-l border-dashed border-sky-400"
             style={{ left: selectionGap.lineX * scale, top: selectionGap.topY * scale, height: selectionGap.gap * scale }}
           />
-          <span
-            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded bg-neutral-900/80 px-1 text-[10px] whitespace-nowrap text-sky-300"
+          <EditableLabel
+            value={selectionGap.gap}
+            editable={selectionGap.editable}
+            onCommit={handleEditGap}
+            formatInches={formatInches}
+            textColorClass="text-sky-300"
+            borderColorClass="border-sky-400"
             style={{
               left: selectionGap.lineX * scale,
               top: (selectionGap.topY + selectionGap.gap / 2) * scale,
+              transform: 'translate(-50%, -50%)',
             }}
-          >
-            {formatInches(selectionGap.gap, useFraction)}
-          </span>
+          />
         </>
       )}
 

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { downloadCsv, partsListToCsv } from '../lib/csv'
+import { formatInches } from '../lib/formatInches'
 
-export default function PartsListPanel({ partsList, notes, onNotesChange, selectedIds, onSelectPart }) {
+export default function PartsListPanel({ partsList, notes, onNotesChange, selectedIds, onSelectPart, useFraction = true }) {
   const [collapsed, setCollapsed] = useState(true)
   const totalCount = partsList.reduce((sum, p) => sum + p.quantity, 0)
 
@@ -69,7 +70,7 @@ export default function PartsListPanel({ partsList, notes, onNotesChange, select
                       </td>
                       <td className="py-1.5 pr-3 text-neutral-400">{part.partNumber || '—'}</td>
                       <td className="py-1.5 pr-3 text-neutral-300">
-                        {part.width}&Prime; &times; {part.height}&Prime;
+                        {formatInches(part.width, useFraction)} &times; {formatInches(part.height, useFraction)}
                       </td>
                       <td className="py-1.5 pr-3 text-neutral-300">{part.quantity}</td>
                       <td className="py-1.5" onClick={(e) => e.stopPropagation()}>

@@ -9,12 +9,16 @@ const EPSILON = 0.01
 // through the part's true geometric center regardless, purely for placement.
 // When `editable`, clicking any label turns it into a text input — typing a
 // value and hitting Enter (or clicking away) moves the part to match.
+// `showVertical` can be turned off when that measurement is shown elsewhere
+// instead (e.g. an external ruler alongside a print diagram with several
+// rails, where running every vertical line through the panel gets crowded).
 export default function PartDimensionGuides({
   part,
   panelWidth,
   scale,
   useFraction = true,
   editable = false,
+  showVertical = true,
   onEditMeasure,
   onEditLeftGap,
   onEditRightGap,
@@ -27,17 +31,21 @@ export default function PartDimensionGuides({
 
   return (
     <>
-      <div
-        className="pointer-events-none absolute border-l border-dashed border-emerald-400"
-        style={{ left: centerX * scale, top: 0, height: measureY * scale }}
-      />
-      <EditableLabel
-        value={measureY}
-        editable={editable}
-        onCommit={onEditMeasure}
-        formatInches={formatInches}
-        style={{ left: centerX * scale, top: (measureY * scale) / 2, transform: 'translate(-50%, -50%)' }}
-      />
+      {showVertical && (
+        <>
+          <div
+            className="pointer-events-none absolute border-l border-dashed border-emerald-400"
+            style={{ left: centerX * scale, top: 0, height: measureY * scale }}
+          />
+          <EditableLabel
+            value={measureY}
+            editable={editable}
+            onCommit={onEditMeasure}
+            formatInches={formatInches}
+            style={{ left: centerX * scale, top: (measureY * scale) / 2, transform: 'translate(-50%, -50%)' }}
+          />
+        </>
+      )}
 
       {part.x > EPSILON && (
         <>

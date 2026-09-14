@@ -1,5 +1,15 @@
 import { isDarkColor } from '../lib/color'
-import { getEffectiveSize } from '../lib/geometry'
+import { formatInches } from '../lib/formatInches'
+import { getBounds, getEffectiveSize } from '../lib/geometry'
+import PartDimensionGuides from './PartDimensionGuides'
+
+const PX_PER_IN = 96 // CSS spec: 1in is always exactly 96px, on screen or on paper
+
+// A label crammed into a box too small to hold it just reads as garbled
+// overlapping text on paper — better to leave those unlabeled (matching how
+// the live canvas hides a truncated name too, showing it only on hover).
+const MIN_LABEL_WIDTH_IN = 0.35
+const MIN_LABEL_HEIGHT_IN = 0.14
 
 // Fits the panel into a fixed print-safe box, in CSS inches so it renders
 // at a predictable, consistent size both on screen and on paper (a US
@@ -21,6 +31,7 @@ function PanelDiagram({ panelWidth, panelHeight, placedComponents }) {
         .map((c) => {
           const { width, height } = getEffectiveSize(c)
           const dark = isDarkColor(c.color)
+          const showLabel = width * scale >= MIN_LABEL_WIDTH_IN && height * scale >= MIN_LABEL_HEIGHT_IN
           return (
             <div
               key={c.id}
@@ -33,7 +44,7 @@ function PanelDiagram({ panelWidth, panelHeight, placedComponents }) {
                 backgroundColor: c.color,
               }}
             >
-              <span className="truncate px-0.5">{c.name}</span>
+              {showLabel && <span className="truncate px-0.5">{c.name}</span>}
             </div>
           )
         })}
@@ -41,13 +52,228 @@ function PanelDiagram({ panelWidth, panelHeight, placedComponents }) {
   )
 }
 
-// A printable technician build sheet: project title, a diagram of the
-// panel, and a Bill of Materials. This is v1 — a later iteration adds
-// annotated views (rail measurements, labeled/arrowed layout with
-// identical-adjacent parts bracketed together). Deliberately styled
+function railMeasureY(y, height, railMeasureMode) {
+  if (railMeasureMode === 'top') return y
+  if (railMeasureMode === 'bottom') return y + height
+  return y + height / 2
+}
+
+const noop = () => {}
+
+// For a rail's tallest mounted part, the vertical clearance to whatever's
+// immediately above/below it outside the rail assembly — in practice the
+// Panduit wireway sandwiching that row, which is the clearance a technician
+// actually needs when routing wire. Only counts a candidate that at least
+// partly overlaps the tallest part horizontally, so an unrelated part
+// elsewhere on the panel with a coincidentally similar Y isn't picked.
+function getTallestPartGaps(rail, placedComponents) {
+  const mounted = placedComponents.filter((c) => c.mountedOnRailId === rail.id)
+  if (mounted.length === 0) return null
+
+  const tallest = mounted.reduce((best, c) =>
+    getEffectiveSize(c).height > getEffectiveSize(best).height ? c : best,
+  )
+  const bounds = getBounds(tallest)
+
+  const others = placedComponents.filter((c) => c.id !== rail.id && c.mountedOnRailId !== rail.id)
+  let above = null
+  let below = null
+  for (const other of others) {
+    const ob = getBounds(other)
+    const overlapsX = ob.x < bounds.x + bounds.width && ob.x + ob.width > bounds.x
+    if (!overlapsX) continue
+
+    if (ob.y + ob.height <= bounds.y + 1e-6) {
+      const gap = bounds.y - (ob.y + ob.height)
+      if (!above || gap < above.gap) above = { gap, edgeY: ob.y + ob.height }
+    }
+    if (ob.y >= bounds.y + bounds.height - 1e-6) {
+      const gap = ob.y - (bounds.y + bounds.height)
+      if (!below || gap < below.gap) below = { gap, edgeY: bounds.y + bounds.height }
+    }
+  }
+  if (!above && !below) return null
+  return { bounds, above, below }
+}
+
+const PAGE_MAX_WIDTH_IN = 7
+const PAGE_MAX_HEIGHT_IN = 8.5
+const RULER_WIDTH_IN = 0.9
+
+// Each rail's distance from the panel top (whichever edge/center is chosen)
+// shown in a margin to the left of the diagram instead of as a line drawn
+// through it — with several rails, running every one of those lines through
+// the panel itself gets crowded and overlaps fast.
+function ExternalRuler({ rails, panelHeight, fitScale, useFraction, railMeasureMode }) {
+  return (
+    <div className="relative shrink-0" style={{ width: `${RULER_WIDTH_IN}in`, height: `${panelHeight * fitScale}in` }}>
+      {rails.map((rail) => {
+        const { height } = getEffectiveSize(rail)
+        const measureY = railMeasureY(rail.y, height, railMeasureMode)
+        return (
+          <div
+            key={rail.id}
+            className="absolute right-0 flex -translate-y-1/2 items-center gap-1"
+            style={{ top: `${measureY * fitScale}in` }}
+          >
+            <span className="text-[9px] whitespace-nowrap text-black">{formatInches(measureY, useFraction)}</span>
+            <span className="h-px w-2 bg-black" />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// A bigger, dimension-focused redraw of the panel: every rail's position
+// (from the panel edges) and length is always shown — no selection needed —
+// plus the clearance from each rail's tallest mounted part to the nearest
+// part above/below it.
+function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFraction, railMeasureMode }) {
+  const rails = placedComponents.filter((c) => c.isRail)
+  if (rails.length === 0 || !(panelWidth > 0) || !(panelHeight > 0)) return null
+
+  const fitScale = Math.min(PAGE_MAX_WIDTH_IN / panelWidth, PAGE_MAX_HEIGHT_IN / panelHeight)
+  const pxScale = fitScale * PX_PER_IN
+
+  return (
+    <div className="break-before-page">
+      <h2 className="mb-2 text-base font-bold tracking-wide uppercase">DIN Rail Measurements</h2>
+      <div className="flex items-start gap-1">
+        <ExternalRuler
+          rails={rails}
+          panelHeight={panelHeight}
+          fitScale={fitScale}
+          useFraction={useFraction}
+          railMeasureMode={railMeasureMode}
+        />
+        <div
+          className="relative border-2 border-black"
+          style={{ width: `${panelWidth * fitScale}in`, height: `${panelHeight * fitScale}in` }}
+        >
+          {[...placedComponents]
+            .sort((a, b) => (a.isRail === b.isRail ? 0 : a.isRail ? -1 : 1))
+            .map((c) => {
+              const { width, height } = getEffectiveSize(c)
+              return (
+                <div
+                  key={c.id}
+                  className="absolute border border-black/30"
+                  style={{
+                    left: `${c.x * fitScale}in`,
+                    top: `${c.y * fitScale}in`,
+                    width: `${width * fitScale}in`,
+                    height: `${height * fitScale}in`,
+                    backgroundColor: c.color,
+                    opacity: c.isRail ? 1 : 0.45,
+                  }}
+                />
+              )
+            })}
+
+          {rails.map((rail) => {
+            const { width, height } = getEffectiveSize(rail)
+            const part = {
+              id: rail.id,
+              x: rail.x,
+              y: rail.y,
+              width,
+              height,
+              isRail: true,
+              measureY: railMeasureY(rail.y, height, railMeasureMode),
+            }
+            return (
+              <PartDimensionGuides
+                key={rail.id}
+                part={part}
+                panelWidth={panelWidth}
+                scale={pxScale}
+                useFraction={useFraction}
+                editable={false}
+                showVertical={false}
+                onEditMeasure={noop}
+                onEditLeftGap={noop}
+                onEditRightGap={noop}
+              />
+            )
+          })}
+
+          {rails.map((rail) => {
+            const gaps = getTallestPartGaps(rail, placedComponents)
+            if (!gaps) return null
+            const centerX = (gaps.bounds.x + gaps.bounds.width / 2) * fitScale
+            return (
+              <div key={`gap-${rail.id}`}>
+                {gaps.above && gaps.above.gap > 0.01 && (
+                  <>
+                    <div
+                      className="absolute border-l border-dashed border-red-600"
+                      style={{
+                        left: `${centerX}in`,
+                        top: `${gaps.above.edgeY * fitScale}in`,
+                        height: `${gaps.above.gap * fitScale}in`,
+                      }}
+                    />
+                    <span
+                      className="absolute -translate-x-1/2 -translate-y-1/2 rounded bg-white px-1 text-[9px] whitespace-nowrap text-red-700"
+                      style={{ left: `${centerX}in`, top: `${(gaps.above.edgeY + gaps.above.gap / 2) * fitScale}in` }}
+                    >
+                      {formatInches(gaps.above.gap, useFraction)}
+                    </span>
+                  </>
+                )}
+                {gaps.below && gaps.below.gap > 0.01 && (
+                  <>
+                    <div
+                      className="absolute border-l border-dashed border-red-600"
+                      style={{
+                        left: `${centerX}in`,
+                        top: `${(gaps.bounds.y + gaps.bounds.height) * fitScale}in`,
+                        height: `${gaps.below.gap * fitScale}in`,
+                      }}
+                    />
+                    <span
+                      className="absolute -translate-x-1/2 -translate-y-1/2 rounded bg-white px-1 text-[9px] whitespace-nowrap text-red-700"
+                      style={{
+                        left: `${centerX}in`,
+                        top: `${(gaps.bounds.y + gaps.bounds.height + gaps.below.gap / 2) * fitScale}in`,
+                      }}
+                    >
+                      {formatInches(gaps.below.gap, useFraction)}
+                    </span>
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-neutral-600">
+        Left margin: each rail's distance from the panel top. Green dashed lines: each rail's distance from the
+        panel's left/right edges. Red dashed lines: clearance from the tallest component mounted on that rail to
+        whatever is directly above/below it.
+      </p>
+    </div>
+  )
+}
+
+// A printable technician build sheet: project title, a labeled diagram of
+// the panel, DIN rail measurements, and a Bill of Materials. A later
+// iteration adds a labeled/arrowed component layout with identical-adjacent
+// parts bracketed together as one callout. Deliberately styled
 // light-on-white regardless of the app's dark theme, since it's meant to be
 // read on paper.
-export default function BuildSheetView({ projectName, panelWidth, panelHeight, placedComponents, partsList, partNotes, onClose }) {
+export default function BuildSheetView({
+  projectName,
+  panelWidth,
+  panelHeight,
+  placedComponents,
+  partsList,
+  partNotes,
+  useFraction,
+  railMeasureMode,
+  onClose,
+}) {
   const totalCount = partsList.reduce((sum, p) => sum + p.quantity, 0)
   const today = new Date().toLocaleDateString()
 
@@ -109,7 +335,7 @@ export default function BuildSheetView({ projectName, panelWidth, panelHeight, p
                   <td className="py-1.5 pr-3">{part.name}</td>
                   <td className="py-1.5 pr-3 text-neutral-700">{part.partNumber || '—'}</td>
                   <td className="py-1.5 pr-3 text-neutral-700">
-                    {part.width}&Prime; &times; {part.height}&Prime;
+                    {formatInches(part.width, useFraction)} &times; {formatInches(part.height, useFraction)}
                   </td>
                   <td className="py-1.5 pr-3 text-neutral-700">{part.quantity}</td>
                   <td className="py-1.5 text-neutral-700">{partNotes?.[part.key] || ''}</td>
@@ -127,6 +353,14 @@ export default function BuildSheetView({ projectName, panelWidth, panelHeight, p
             </tfoot>
           </table>
         )}
+
+        <RailMeasurementsPage
+          panelWidth={panelWidth}
+          panelHeight={panelHeight}
+          placedComponents={placedComponents}
+          useFraction={useFraction}
+          railMeasureMode={railMeasureMode}
+        />
       </div>
     </div>
   )

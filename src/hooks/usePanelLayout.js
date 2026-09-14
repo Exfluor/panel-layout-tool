@@ -224,13 +224,18 @@ export function usePanelLayout(initialComponents = []) {
     if (!primary || primary.locked) return
     setLastPlacement(null)
 
+    // Rounded to the thousandth of an inch — drag/snap math can otherwise
+    // leave floating-point noise (e.g. 22.700000000000003) baked into the
+    // stored size, which then shows up verbatim in the parts list and BOM.
+    const round3 = (v) => Math.round(v * 1000) / 1000
+
     setPlacedComponents((prev) => {
       const moved = prev.map((c) => {
         if (c.id !== id) return c
         const rotated = c.rotation % 180 !== 0
-        const width = rotated ? effectiveRect.height : effectiveRect.width
-        const height = rotated ? effectiveRect.width : effectiveRect.height
-        return { ...c, x: effectiveRect.x, y: effectiveRect.y, width, height }
+        const width = round3(rotated ? effectiveRect.height : effectiveRect.width)
+        const height = round3(rotated ? effectiveRect.width : effectiveRect.height)
+        return { ...c, x: round3(effectiveRect.x), y: round3(effectiveRect.y), width, height }
       })
       return moved.map((c) => {
         if (c.id !== id || c.isRail) return c

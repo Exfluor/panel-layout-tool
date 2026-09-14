@@ -585,6 +585,7 @@ export default function CanvasPage() {
             onNotesChange={handleNotesChange}
             selectedIds={layout.selectedIds}
             onSelectPart={layout.selectByIds}
+            useFraction={useFraction}
           />
         </div>
       </div>
@@ -641,6 +642,8 @@ export default function CanvasPage() {
           placedComponents={layout.placedComponents}
           partsList={partsList}
           partNotes={partNotes}
+          useFraction={useFraction}
+          railMeasureMode={railMeasureMode}
           onClose={() => setBuildSheetOpen(false)}
         />
       )}

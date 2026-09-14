@@ -54,6 +54,8 @@ export default function CanvasPage() {
   const [currentProjectId, setCurrentProjectId] = useState(project?.id ?? null)
   const [currentProjectName, setCurrentProjectName] = useState(project?.name ?? '')
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   const [unsavedPromptOpen, setUnsavedPromptOpen] = useState(false)
   const navigateAfterSaveRef = useRef(false)
@@ -254,15 +256,21 @@ export default function CanvasPage() {
     navigate('/')
   }
 
-  function handleExportClick() {
+  function handleRenameSave(name) {
+    saveAs(name)
+    setRenameDialogOpen(false)
+  }
+
+  function handleExportSubmit(name) {
     exportProjectToFile({
-      name: currentProjectName || 'Untitled panel',
+      name,
       panelWidth,
       panelHeight,
       placedComponents: layout.placedComponents,
       componentLibrary: library ?? defaultComponents,
       partNotes,
     })
+    setExportDialogOpen(false)
   }
 
   // Reordering the sidebar's component list is a separate drag type from
@@ -357,8 +365,19 @@ export default function CanvasPage() {
         <div className="flex flex-1 flex-col">
           <header className="flex items-center justify-between border-b border-neutral-700 px-6 py-3">
             <div>
-              <h1 className="text-base font-semibold">
-                Panel Builder{currentProjectName && <span className="text-neutral-400"> &middot; {currentProjectName}</span>}
+              <h1 className="flex items-center gap-1.5 text-base font-semibold">
+                Panel Builder
+                {currentProjectName && <span className="text-neutral-400"> &middot; {currentProjectName}</span>}
+                {currentProjectId && (
+                  <button
+                    type="button"
+                    onClick={() => setRenameDialogOpen(true)}
+                    title="Rename this project"
+                    className="rounded px-1 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+                  >
+                    ✎
+                  </button>
+                )}
               </h1>
               <p className="text-sm text-neutral-400">
                 {panelWidth}&Prime; &times; {panelHeight}&Prime; internal
@@ -460,7 +479,7 @@ export default function CanvasPage() {
             </button>
             <button
               type="button"
-              onClick={handleExportClick}
+              onClick={() => setExportDialogOpen(true)}
               className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
               title="Download this panel as a file you can save on your computer"
             >
@@ -568,6 +587,27 @@ export default function CanvasPage() {
             navigateAfterSaveRef.current = false
             setSaveDialogOpen(false)
           }}
+        />
+      )}
+
+      {renameDialogOpen && (
+        <SaveProjectDialog
+          title="Rename project"
+          submitLabel="Rename"
+          initialName={currentProjectName}
+          onSave={handleRenameSave}
+          onCancel={() => setRenameDialogOpen(false)}
+        />
+      )}
+
+      {exportDialogOpen && (
+        <SaveProjectDialog
+          title="Export panel as…"
+          placeholder="File name"
+          submitLabel="Export"
+          initialName={currentProjectName || 'panel'}
+          onSave={handleExportSubmit}
+          onCancel={() => setExportDialogOpen(false)}
         />
       )}
 

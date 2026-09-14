@@ -109,6 +109,17 @@ export default function CanvasPage() {
     return current !== lastSavedSnapshotRef.current
   }
 
+  // Autosaves a project that's already been named once — a change (move,
+  // edit, library tweak, etc.) is written back 1.5s after the last one stops,
+  // so a burst of drags/keystrokes doesn't hammer localStorage. A brand new,
+  // never-saved panel isn't autosaved: there's no project identity/name yet
+  // to save it under, so that first save still has to be explicit.
+  useEffect(() => {
+    if (!currentProjectId || !isDirty()) return
+    const timer = setTimeout(() => saveAs(currentProjectName), 1500)
+    return () => clearTimeout(timer)
+  }, [layout.placedComponents, library, partNotes, currentProjectId, currentProjectName])
+
   useEffect(() => {
     function handleKeyDown(e) {
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
@@ -473,7 +484,7 @@ export default function CanvasPage() {
             <button
               type="button"
               onClick={handleSaveClick}
-              className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
+              className="min-w-[76px] rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
             >
               {justSaved ? 'Saved ✓' : 'Save'}
             </button>

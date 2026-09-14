@@ -49,6 +49,7 @@ export function usePanelLayout(initialComponents = []) {
       for (let i = 0; i < count; i++) {
         const newComponent = {
           id: ids[i],
+          libraryComponentId: component.id ?? null,
           name: component.name,
           partNumber: component.partNumber ?? '',
           resizable: component.resizable ?? false,
@@ -109,6 +110,32 @@ export function usePanelLayout(initialComponents = []) {
     const primary = placedComponents.find((c) => c.id === id)
     if (!primary || primary.locked) return
     moveGroup(getMovableGroupIds(primary), deltaX, deltaY)
+  }
+
+  // Pushes an edited library component's non-dimension fields out to every
+  // already-placed instance of it (matched via libraryComponentId, set when
+  // each one was placed). Width/height are deliberately excluded — resizing
+  // every existing placement whenever the library entry's size changes would
+  // be surprising and could silently break a layout; placing a fresh copy is
+  // how a dimension change is meant to take effect. Placements made before
+  // this tracking existed have no libraryComponentId and won't retroactively
+  // link up.
+  function syncFromLibrary(libraryComponentId, updates) {
+    const { name, partNumber, color, isRail, resizable, resizableAxis } = updates
+    const patch = {}
+    if (name !== undefined) patch.name = name
+    if (partNumber !== undefined) patch.partNumber = partNumber
+    if (color !== undefined) patch.color = color
+    if (isRail !== undefined) patch.isRail = isRail
+    if (resizable !== undefined) patch.resizable = resizable
+    if (resizableAxis !== undefined) patch.resizableAxis = resizableAxis
+    if (Object.keys(patch).length === 0) return
+    if (!placedComponents.some((c) => c.libraryComponentId === libraryComponentId)) return
+
+    setLastPlacement(null)
+    setPlacedComponents((prev) =>
+      prev.map((c) => (c.libraryComponentId === libraryComponentId ? { ...c, ...patch } : c)),
+    )
   }
 
   // Moves the given components, then re-checks rail mounting for whichever of
@@ -370,6 +397,7 @@ export function usePanelLayout(initialComponents = []) {
     moveComponentBy,
     getMovableGroupIds,
     resizeComponent,
+    syncFromLibrary,
     select,
     selectByIds,
     clearSelection,

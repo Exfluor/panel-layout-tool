@@ -168,6 +168,11 @@ export default function CanvasPage() {
 
   function handleUpdate(id, updates) {
     setLibrary((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)))
+    // Non-dimension edits (name, color, part #, etc.) also push out to every
+    // already-placed instance of this component; folder renames/collapses go
+    // through this same path but never match a placed component's id, so
+    // this is a no-op for them.
+    layout.syncFromLibrary(id, updates)
   }
 
   function handleDelete(id) {

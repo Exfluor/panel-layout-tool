@@ -14,3 +14,32 @@ body,
 body {
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* Printing the build sheet: hide everything else on the page (the dark
+   editor UI) and show only that view, laid out fresh from the page's top
+   rather than wherever its on-screen overlay happened to be positioned. */
+@media print {
+  @page {
+    size: letter;
+    margin: 0.5in;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #build-sheet-print,
+  #build-sheet-print * {
+    visibility: visible;
+  }
+  #build-sheet-print {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  /* Browsers drop background colors on print by default (the component
+     swatches in the panel diagram) unless told otherwise. */
+  #build-sheet-print * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

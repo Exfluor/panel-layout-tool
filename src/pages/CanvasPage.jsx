@@ -2,6 +2,7 @@ import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import BuildSheetView from '../components/BuildSheetView'
 import ComponentLibrarySidebar, { UNCATEGORIZED_DROP_ID } from '../components/ComponentLibrarySidebar'
 import Minimap from '../components/Minimap'
 import PanelCanvas from '../components/PanelCanvas'
@@ -56,6 +57,7 @@ export default function CanvasPage() {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [buildSheetOpen, setBuildSheetOpen] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   const [unsavedPromptOpen, setUnsavedPromptOpen] = useState(false)
   const navigateAfterSaveRef = useRef(false)
@@ -498,6 +500,14 @@ export default function CanvasPage() {
             </button>
             <button
               type="button"
+              onClick={() => setBuildSheetOpen(true)}
+              className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
+              title="A printable title + Bill of Materials to hand to a technician"
+            >
+              Build Sheet
+            </button>
+            <button
+              type="button"
               onClick={handleNewPanelClick}
               className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
             >
@@ -620,6 +630,18 @@ export default function CanvasPage() {
           initialName={currentProjectName || 'panel'}
           onSave={handleExportSubmit}
           onCancel={() => setExportDialogOpen(false)}
+        />
+      )}
+
+      {buildSheetOpen && (
+        <BuildSheetView
+          projectName={currentProjectName}
+          panelWidth={panelWidth}
+          panelHeight={panelHeight}
+          placedComponents={layout.placedComponents}
+          partsList={partsList}
+          partNotes={partNotes}
+          onClose={() => setBuildSheetOpen(false)}
         />
       )}
 

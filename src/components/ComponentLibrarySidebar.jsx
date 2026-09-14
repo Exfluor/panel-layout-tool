@@ -440,15 +440,31 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
   const [filenameDraft, setFilenameDraft] = useState('component-library')
   const [importError, setImportError] = useState('')
   const [importMessage, setImportMessage] = useState('')
+  const [search, setSearch] = useState('')
   const fileInputRef = useRef(null)
 
   const folders = library.filter((item) => item.isFolder)
   const components = library.filter((item) => !item.isFolder)
 
+  const searchActive = search.trim().length > 0
+  const searchQuery = search.trim().toLowerCase()
+  function matchesSearch(c) {
+    if (!searchActive) return true
+    return c.name.toLowerCase().includes(searchQuery) || (c.partNumber ?? '').toLowerCase().includes(searchQuery)
+  }
+
+  // The true (unfiltered) membership — used for structural operations like
+  // un-filing a deleted folder's components, which must never skip a
+  // component just because it's currently hidden by an active search.
   function componentsInFolder(folderId) {
     return components.filter((c) => (c.folderId ?? null) === folderId)
   }
-  const uncategorized = componentsInFolder(null)
+  // What's actually shown for a folder, honoring the active search.
+  function visibleComponentsInFolder(folderId) {
+    return componentsInFolder(folderId).filter(matchesSearch)
+  }
+  const uncategorized = visibleComponentsInFolder(null)
+  const hasAnyMatches = components.some(matchesSearch)
 
   function handleExportSubmit(e) {
     e.preventDefault()
@@ -595,6 +611,25 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
             </button>
           )}
         </div>
+        <div className="relative mt-1.5">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or part #…"
+            className="w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1 pr-6 text-sm outline-none focus:border-blue-500"
+          />
+          {searchActive && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              title="Clear search"
+              className="absolute top-1/2 right-1.5 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
+            >
+              &times;
+            </button>
+          )}
+        </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           {!exportingFilename && (
             <button
@@ -696,8 +731,10 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
 
         <SortableContext items={folders.map((f) => f.id)} strategy={verticalListSortingStrategy}>
           {folders.map((folder, index) => {
-            const items = componentsInFolder(folder.id)
+            const items = visibleComponentsInFolder(folder.id)
             const color = getFolderColor(index)
+            if (searchActive && items.length === 0) return null
+            const expanded = searchActive || !folder.collapsed
             return (
               <div key={folder.id} className="mb-1.5">
                 <FolderHeader
@@ -708,7 +745,7 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
                   onRename={(name) => onUpdate(folder.id, { name })}
                   onDelete={() => handleDeleteFolder(folder.id)}
                 />
-                {!folder.collapsed && (
+                {expanded && (
                   <SortableContext items={items.map((c) => c.id)} strategy={verticalListSortingStrategy}>
                     <div
                       className="ml-1.5 space-y-1 border-l-2 py-1 pl-2"
@@ -727,7 +764,7 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
           })}
         </SortableContext>
 
-        {folders.length > 0 && <UncategorizedHeader />}
+        {folders.length > 0 && (!searchActive || uncategorized.length > 0) && <UncategorizedHeader />}
 
         <SortableContext items={uncategorized.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           <div className={folders.length > 0 ? 'space-y-1 pl-2' : 'space-y-1'}>{uncategorized.map(renderRow)}</div>
@@ -736,6 +773,11 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
         {library.length === 0 && !adding && (
           <p className="px-2 py-4 text-center text-xs text-neutral-500">
             No components yet. Add one to get started.
+          </p>
+        )}
+        {searchActive && !hasAnyMatches && (
+          <p className="px-2 py-4 text-center text-xs text-neutral-500">
+            No components match &ldquo;{search.trim()}&rdquo;.
           </p>
         )}
       </div>

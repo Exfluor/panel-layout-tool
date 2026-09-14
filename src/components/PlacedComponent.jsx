@@ -1,9 +1,45 @@
 import { useDraggable } from '@dnd-kit/core'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { isDarkColor } from '../lib/color'
-import { getEffectiveSize } from '../lib/geometry'
+import { getResizableEdges } from '../lib/geometry'
 
-export default function PlacedComponent({ component, x, y, scale, selected, overlapping, onSelect }) {
+const HANDLE_THICKNESS = 8
+
+function ResizeHandle({ edge, onStartResize }) {
+  const isHorizontal = edge === 'left' || edge === 'right'
+  const edgeStyle =
+    edge === 'left'
+      ? { left: -HANDLE_THICKNESS / 2, top: 0, bottom: 0, width: HANDLE_THICKNESS }
+      : edge === 'right'
+        ? { right: -HANDLE_THICKNESS / 2, top: 0, bottom: 0, width: HANDLE_THICKNESS }
+        : edge === 'top'
+          ? { top: -HANDLE_THICKNESS / 2, left: 0, right: 0, height: HANDLE_THICKNESS }
+          : { bottom: -HANDLE_THICKNESS / 2, left: 0, right: 0, height: HANDLE_THICKNESS }
+
+  return (
+    <div
+      onPointerDown={onStartResize}
+      onClick={(e) => e.stopPropagation()}
+      title="Drag to extend or cut"
+      className="absolute z-10 hover:bg-blue-400/50"
+      style={{ ...edgeStyle, cursor: isHorizontal ? 'ew-resize' : 'ns-resize', touchAction: 'none' }}
+    />
+  )
+}
+
+export default function PlacedComponent({
+  component,
+  x,
+  y,
+  width,
+  height,
+  scale,
+  selected,
+  overlapping,
+  resizing,
+  onSelect,
+  onStartResize,
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: component.id,
     data: { type: 'placed', id: component.id },
@@ -13,12 +49,11 @@ export default function PlacedComponent({ component, x, y, scale, selected, over
   const labelRef = useRef(null)
   const [isTruncated, setIsTruncated] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const { width, height } = getEffectiveSize(component)
 
   // Re-measures whenever anything that could change the box's on-screen size
-  // changes — scale (zoom/resize), rotation (via width/height), or the name
-  // itself — so a sliver of a cut-off word never lingers behind, and text
-  // that fits again after resizing correctly becomes visible again too.
+  // changes — scale (zoom/resize), rotation/resize (via width/height), or the
+  // name itself — so a sliver of a cut-off word never lingers behind, and
+  // text that fits again after resizing correctly becomes visible again too.
   useLayoutEffect(() => {
     const el = labelRef.current
     if (!el) return
@@ -50,7 +85,7 @@ export default function PlacedComponent({ component, x, y, scale, selected, over
         }}
         onPointerEnter={() => setHovered(true)}
         onPointerLeave={() => setHovered(false)}
-        className={`absolute flex items-center justify-center overflow-hidden text-[10px] font-medium select-none ${textColorClass} ${borderClass} ${isDragging ? 'opacity-50' : ''}`}
+        className={`absolute flex items-center justify-center overflow-hidden text-[10px] font-medium select-none ${textColorClass} ${borderClass} ${isDragging || resizing ? 'opacity-50' : ''}`}
         style={{
           left: x * scale,
           top: y * scale,
@@ -64,6 +99,15 @@ export default function PlacedComponent({ component, x, y, scale, selected, over
         <span ref={labelRef} className={`truncate px-1 ${isTruncated ? 'invisible' : ''}`}>
           {component.name}
         </span>
+
+        {selected &&
+          component.resizable &&
+          !component.locked &&
+          !component.isRail &&
+          !isDragging &&
+          getResizableEdges(component).map((edge) => (
+            <ResizeHandle key={edge} edge={edge} onStartResize={onStartResize(component, edge)} />
+          ))}
       </div>
 
       {isTruncated && hovered && (

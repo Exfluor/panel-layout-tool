@@ -51,6 +51,8 @@ export function usePanelLayout(initialComponents = []) {
           id: ids[i],
           name: component.name,
           partNumber: component.partNumber ?? '',
+          resizable: component.resizable ?? false,
+          resizableAxis: component.resizableAxis === 'height' ? 'height' : 'width',
           width: component.width,
           height: component.height,
           color: component.color,
@@ -178,6 +180,33 @@ export function usePanelLayout(initialComponents = []) {
       const moved = prev.map((c) => (targetX.has(c.id) ? { ...c, x: targetX.get(c.id) } : c))
       return moved.map((c) => {
         if (!targetX.has(c.id) || c.isRail) return c
+        const bounds = getBounds(c)
+        const rail = moved.find((other) => other.isRail && rectsOverlap(bounds, getBounds(other)))
+        return { ...c, mountedOnRailId: rail?.id ?? null }
+      })
+    })
+  }
+
+  // Applies a resize-handle drag: `effectiveRect` is the new on-screen
+  // (post-rotation) box for the component — converted back to its raw
+  // width/height (which swap with height/width at 90°/270°) — then rail
+  // mounting is re-checked since stretching a part can newly overlap or
+  // clear a rail underneath it.
+  function resizeComponent(id, effectiveRect) {
+    const primary = placedComponents.find((c) => c.id === id)
+    if (!primary || primary.locked) return
+    setLastPlacement(null)
+
+    setPlacedComponents((prev) => {
+      const moved = prev.map((c) => {
+        if (c.id !== id) return c
+        const rotated = c.rotation % 180 !== 0
+        const width = rotated ? effectiveRect.height : effectiveRect.width
+        const height = rotated ? effectiveRect.width : effectiveRect.height
+        return { ...c, x: effectiveRect.x, y: effectiveRect.y, width, height }
+      })
+      return moved.map((c) => {
+        if (c.id !== id || c.isRail) return c
         const bounds = getBounds(c)
         const rail = moved.find((other) => other.isRail && rectsOverlap(bounds, getBounds(other)))
         return { ...c, mountedOnRailId: rail?.id ?? null }
@@ -340,6 +369,7 @@ export function usePanelLayout(initialComponents = []) {
     moveGroup,
     moveComponentBy,
     getMovableGroupIds,
+    resizeComponent,
     select,
     selectByIds,
     clearSelection,

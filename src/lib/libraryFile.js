@@ -62,6 +62,8 @@ export function parseLibraryFile(text) {
       height: Number(c.height),
       color: typeof c.color === 'string' ? c.color : '#3b82f6',
       isRail: Boolean(c.isRail),
+      resizable: Boolean(c.resizable),
+      resizableAxis: c.resizableAxis === 'height' ? 'height' : 'width',
       folderIndex:
         Number.isInteger(c.folderIndex) && c.folderIndex >= 0 && c.folderIndex < folders.length
           ? c.folderIndex

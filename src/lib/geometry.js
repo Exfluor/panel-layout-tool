@@ -9,6 +9,19 @@ export function getBounds(component) {
   return { x, y, width, height }
 }
 
+// Which pair of on-screen edges correspond to the component's chosen
+// resizable dimension (its raw width or height field) — a rail's length
+// stays resizable while its fixed profile depth doesn't, regardless of
+// which way it's currently rotated. Raw width maps to the effective X axis
+// when unrotated but to the effective Y axis at 90°/270°, and vice versa
+// for raw height.
+export function getResizableEdges(component) {
+  const rotated = component.rotation % 180 !== 0
+  const axis = component.resizableAxis === 'height' ? 'height' : 'width'
+  const mapsToX = (axis === 'width') !== rotated
+  return mapsToX ? ['left', 'right'] : ['top', 'bottom']
+}
+
 export function rectsOverlap(a, b, epsilon = 0.02) {
   return (
     a.x + epsilon < b.x + b.width &&

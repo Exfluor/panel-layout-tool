@@ -20,7 +20,17 @@ function GripIcon(props) {
   )
 }
 
-const emptyDraft = { name: '', partNumber: '', width: '', height: '', color: '#3b82f6', isRail: false, folderId: null }
+const emptyDraft = {
+  name: '',
+  partNumber: '',
+  width: '',
+  height: '',
+  color: '#3b82f6',
+  isRail: false,
+  resizable: false,
+  resizableAxis: 'width',
+  folderId: null,
+}
 
 function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folders }) {
   return (
@@ -92,6 +102,27 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
         />
         Mounting rail (e.g. DIN rail) &mdash; parts placed on it won't flag as overlapping
       </label>
+      <label className="flex items-center gap-1.5 text-xs text-neutral-300">
+        <input
+          type="checkbox"
+          checked={draft.resizable}
+          onChange={(e) => onChange({ ...draft, resizable: e.target.checked })}
+        />
+        Resizable &mdash; drag an edge on the canvas to stretch or cut it (e.g. Panduit, DIN rail)
+      </label>
+      {draft.resizable && (
+        <label className="block text-xs text-neutral-400">
+          Resizable dimension &mdash; the other stays fixed (e.g. a rail's length, not its profile)
+          <select
+            value={draft.resizableAxis}
+            onChange={(e) => onChange({ ...draft, resizableAxis: e.target.value })}
+            className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
+          >
+            <option value="width">Width</option>
+            <option value="height">Height</option>
+          </select>
+        </label>
+      )}
       <div className="flex items-center gap-2">
         <input
           type="color"
@@ -144,6 +175,8 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
       height: String(component.height),
       color: component.color,
       isRail: component.isRail ?? false,
+      resizable: component.resizable ?? false,
+      resizableAxis: component.resizableAxis === 'height' ? 'height' : 'width',
       folderId: component.folderId ?? null,
     })
     setEditing(true)
@@ -162,6 +195,8 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
       height,
       color: draft.color,
       isRail: draft.isRail,
+      resizable: draft.resizable,
+      resizableAxis: draft.resizableAxis,
       folderId: draft.folderId,
     })
     setEditing(false)
@@ -390,7 +425,9 @@ function isSameComponent(a, b) {
     a.width === b.width &&
     a.height === b.height &&
     a.color === b.color &&
-    Boolean(a.isRail) === Boolean(b.isRail)
+    Boolean(a.isRail) === Boolean(b.isRail) &&
+    Boolean(a.resizable) === Boolean(b.resizable) &&
+    (a.resizableAxis ?? 'width') === (b.resizableAxis ?? 'width')
   )
 }
 
@@ -489,6 +526,8 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
       height,
       color: draft.color,
       isRail: draft.isRail,
+      resizable: draft.resizable,
+      resizableAxis: draft.resizableAxis,
       folderId: draft.folderId,
     })
     setDraft(emptyDraft)
@@ -503,6 +542,8 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
       height: component.height,
       color: component.color,
       isRail: component.isRail ?? false,
+      resizable: component.resizable ?? false,
+      resizableAxis: component.resizableAxis === 'height' ? 'height' : 'width',
       folderId: component.folderId ?? null,
     })
   }

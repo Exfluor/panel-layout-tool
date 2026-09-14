@@ -1,18 +1,26 @@
 import { useMarqueeSelect } from '../hooks/useMarqueeSelect'
+import { useResizeHandle } from '../hooks/useResizeHandle'
 import { getBounds, getEffectiveSize } from '../lib/geometry'
 import { formatInches } from '../lib/formatInches'
 import PartDimensionGuides from './PartDimensionGuides'
 import PlacedComponent from './PlacedComponent'
 import RailDragHandle from './RailDragHandle'
 
-function getRenderPosition(component, dragGhost) {
+// The box actually drawn for a component: its resize-handle ghost while
+// being stretched/cut takes priority, then the move-drag ghost's offset,
+// then its plain placed position/size.
+function getRenderRect(component, dragGhost, resizeGhost) {
+  if (resizeGhost?.id === component.id) {
+    return resizeGhost
+  }
+  const { width, height } = getEffectiveSize(component)
   let x = component.x
   let y = component.y
   if (dragGhost?.type === 'move' && dragGhost.groupIds.includes(component.id)) {
     x += dragGhost.deltaX
     y += dragGhost.deltaY
   }
-  return { x, y }
+  return { x, y, width, height }
 }
 
 function railMeasureY(y, height, railMeasureMode) {
@@ -121,6 +129,8 @@ export default function PanelCanvas({
   onClearSelection,
   onToggleLock,
   onMoveComponentBy,
+  onResizeComponent,
+  gridSnapEnabled,
   useFraction,
   railMeasureMode,
   lastPlacement,
@@ -131,6 +141,15 @@ export default function PanelCanvas({
     placedComponents,
     scale,
     onSelect: onSelectByIds,
+  })
+
+  const { resizeGhost, startResize } = useResizeHandle({
+    placedComponents,
+    scale,
+    panelWidth,
+    panelHeight,
+    gridSnapEnabled,
+    onResize: onResizeComponent,
   })
 
   if (scale <= 0) return null
@@ -158,17 +177,21 @@ export default function PanelCanvas({
       {[...placedComponents]
         .sort((a, b) => (a.isRail === b.isRail ? 0 : a.isRail ? -1 : 1))
         .map((component) => {
-          const { x: renderX, y: renderY } = getRenderPosition(component, dragGhost)
+          const rect = getRenderRect(component, dragGhost, resizeGhost)
           return (
             <PlacedComponent
               key={component.id}
               component={component}
-              x={renderX}
-              y={renderY}
+              x={rect.x}
+              y={rect.y}
+              width={rect.width}
+              height={rect.height}
               scale={scale}
               selected={selectedIds.has(component.id)}
               overlapping={overlappingIds.has(component.id)}
+              resizing={resizeGhost?.id === component.id}
               onSelect={onSelect}
+              onStartResize={startResize}
             />
           )
         })}
@@ -176,17 +199,20 @@ export default function PanelCanvas({
       {placedComponents
         .filter((c) => c.isRail)
         .map((rail) => {
-          const { x: renderX, y: renderY } = getRenderPosition(rail, dragGhost)
+          const rect = getRenderRect(rail, dragGhost, resizeGhost)
           return (
             <RailDragHandle
               key={rail.id}
               rail={rail}
-              x={renderX}
-              y={renderY}
+              x={rect.x}
+              y={rect.y}
+              width={rect.width}
+              height={rect.height}
               scale={scale}
               selected={selectedIds.has(rail.id)}
               onSelect={onSelect}
               onToggleLock={onToggleLock}
+              onStartResize={startResize}
             />
           )
         })}

@@ -496,6 +496,8 @@ export default function CanvasPage() {
                   onClearSelection={layout.clearSelection}
                   onToggleLock={layout.toggleLock}
                   onMoveComponentBy={layout.moveComponentBy}
+                  onResizeComponent={layout.resizeComponent}
+                  gridSnapEnabled={gridSnapEnabled}
                   useFraction={useFraction}
                   railMeasureMode={railMeasureMode}
                   lastPlacement={layout.lastPlacement}

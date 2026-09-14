@@ -1,7 +1,36 @@
 import { useDraggable } from '@dnd-kit/core'
-import { getEffectiveSize } from '../lib/geometry'
+import { getResizableEdges } from '../lib/geometry'
 
 const STRIP = 6 // px — width of the clickable/draggable border band
+const HANDLE_SIZE = 10 // px — small resize-handle square, kept clear of the drag strips above
+
+function ResizeEndpoint({ edge, onStartResize }) {
+  const isHorizontal = edge === 'left' || edge === 'right'
+  const edgeStyle =
+    edge === 'left'
+      ? { left: -HANDLE_SIZE / 2, top: '50%', marginTop: -HANDLE_SIZE / 2 }
+      : edge === 'right'
+        ? { right: -HANDLE_SIZE / 2, top: '50%', marginTop: -HANDLE_SIZE / 2 }
+        : edge === 'top'
+          ? { top: -HANDLE_SIZE / 2, left: '50%', marginLeft: -HANDLE_SIZE / 2 }
+          : { bottom: -HANDLE_SIZE / 2, left: '50%', marginLeft: -HANDLE_SIZE / 2 }
+
+  return (
+    <div
+      onPointerDown={onStartResize}
+      onClick={(e) => e.stopPropagation()}
+      title="Drag to extend or cut"
+      className="pointer-events-auto absolute z-10 rounded-sm border border-white/80 bg-blue-500"
+      style={{
+        ...edgeStyle,
+        width: HANDLE_SIZE,
+        height: HANDLE_SIZE,
+        cursor: isHorizontal ? 'ew-resize' : 'ns-resize',
+        touchAction: 'none',
+      }}
+    />
+  )
+}
 
 function LockIcon({ locked }) {
   return (
@@ -21,14 +50,13 @@ function LockIcon({ locked }) {
   )
 }
 
-export default function RailDragHandle({ rail, x, y, scale, selected, onSelect, onToggleLock }) {
+export default function RailDragHandle({ rail, x, y, width, height, scale, selected, onSelect, onToggleLock, onStartResize }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `rail-handle:${rail.id}`,
     data: { type: 'placed', id: rail.id },
     disabled: rail.locked,
   })
 
-  const { width, height } = getEffectiveSize(rail)
   const color = rail.locked ? '#f59e0b' : selected ? '#60a5fa' : 'rgba(255,255,255,0.85)'
 
   const stripBase = {
@@ -64,6 +92,13 @@ export default function RailDragHandle({ rail, x, y, scale, selected, onSelect, 
         {...stripBase}
         style={{ ...stripBase.style, right: 0, top: 0, width: STRIP, height: '100%', borderRight: `2px dashed ${color}` }}
       />
+
+      {selected &&
+        rail.resizable &&
+        !rail.locked &&
+        getResizableEdges(rail).map((edge) => (
+          <ResizeEndpoint key={edge} edge={edge} onStartResize={onStartResize(rail, edge)} />
+        ))}
 
       {selected && (
         <button

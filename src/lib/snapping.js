@@ -17,6 +17,25 @@ function snapAxis(value, candidates, threshold) {
   return best
 }
 
+// Snaps a single moving coordinate (e.g. a resize handle's edge) to the
+// closest of a plain list of candidate positions, falling back to the 1/8"
+// grid when nothing is close enough and gridSnapEnabled is on. Used for
+// stretching/cutting a part's edge, as opposed to computeSnappedPosition's
+// whole-box move.
+export function snapEdge(value, candidates, threshold, gridSnapEnabled = true) {
+  let best = value
+  let bestDist = threshold
+  for (const candidate of candidates) {
+    const dist = Math.abs(candidate - value)
+    if (dist < bestDist) {
+      bestDist = dist
+      best = candidate
+    }
+  }
+  if (best === value && gridSnapEnabled) return quantize(value)
+  return best
+}
+
 // A rail snapping to the panel's center, a part snapping to the centerline
 // of a rail it's near, and a part's left/right edges snapping flush against
 // a neighboring part's edges (how parts butt together with no gap along a

@@ -399,6 +399,8 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
   const [addingFolder, setAddingFolder] = useState(false)
   const [folderNameDraft, setFolderNameDraft] = useState('')
   const [draft, setDraft] = useState(emptyDraft)
+  const [exportingFilename, setExportingFilename] = useState(false)
+  const [filenameDraft, setFilenameDraft] = useState('component-library')
   const [importError, setImportError] = useState('')
   const [importMessage, setImportMessage] = useState('')
   const fileInputRef = useRef(null)
@@ -411,8 +413,10 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
   }
   const uncategorized = componentsInFolder(null)
 
-  function handleExportLibrary() {
-    exportLibraryToFile(library)
+  function handleExportSubmit(e) {
+    e.preventDefault()
+    exportLibraryToFile(library, filenameDraft)
+    setExportingFilename(false)
   }
 
   function handleImportClick() {
@@ -429,12 +433,32 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
     const reader = new FileReader()
     reader.onload = () => {
       try {
-        const imported = parseLibraryFile(reader.result)
-        const newOnes = imported.filter((c) => !components.some((existing) => isSameComponent(c, existing)))
+        const { folders: importedFolders, components: importedComponents } = parseLibraryFile(reader.result)
+
+        // Reuse an existing folder with a matching name; otherwise recreate
+        // it, so imported components land back in the same folder structure
+        // they were exported from instead of dumping into Uncategorized.
+        const folderIdByIndex = new Map()
+        importedFolders.forEach((f, index) => {
+          const existing = folders.find((existingFolder) => existingFolder.name.toLowerCase() === f.name.toLowerCase())
+          if (existing) {
+            folderIdByIndex.set(index, existing.id)
+          } else {
+            const id = crypto.randomUUID()
+            onAdd({ id, isFolder: true, name: f.name, collapsed: f.collapsed })
+            folderIdByIndex.set(index, id)
+          }
+        })
+
+        const candidates = importedComponents.map(({ folderIndex, ...c }) => ({
+          ...c,
+          folderId: folderIndex != null ? (folderIdByIndex.get(folderIndex) ?? null) : null,
+        }))
+        const newOnes = candidates.filter((c) => !components.some((existing) => isSameComponent(c, existing)))
         newOnes.forEach((c) => onAdd(c))
 
         setImportError('')
-        const skipped = imported.length - newOnes.length
+        const skipped = candidates.length - newOnes.length
         setImportMessage(
           skipped > 0
             ? `Imported ${newOnes.length} new component${newOnes.length === 1 ? '' : 's'}; skipped ${skipped} already in your library.`
@@ -531,14 +555,19 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
           )}
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExportLibrary}
-            title="Download this library as a file you can share"
-            className="rounded border border-neutral-600 px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
-          >
-            Export library
-          </button>
+          {!exportingFilename && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilenameDraft('component-library')
+                setExportingFilename(true)
+              }}
+              title="Download this library as a file you can share"
+              className="rounded border border-neutral-600 px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
+            >
+              Export library
+            </button>
+          )}
           <button
             type="button"
             onClick={handleImportClick}
@@ -564,6 +593,29 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
             className="hidden"
           />
         </div>
+        {exportingFilename && (
+          <form onSubmit={handleExportSubmit} className="mt-1.5 flex items-center gap-1">
+            <input
+              autoFocus
+              value={filenameDraft}
+              onChange={(e) => setFilenameDraft(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              placeholder="File name"
+              className="w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
+            />
+            <span className="shrink-0 text-xs text-neutral-500">.json</span>
+            <button type="submit" className="rounded bg-blue-600 px-2 py-1 text-xs hover:bg-blue-500">
+              Download
+            </button>
+            <button
+              type="button"
+              onClick={() => setExportingFilename(false)}
+              className="rounded border border-neutral-600 px-2 py-1 text-xs hover:bg-neutral-700"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
         {addingFolder && (
           <form onSubmit={handleAddFolder} className="mt-1.5 flex items-center gap-1">
             <input

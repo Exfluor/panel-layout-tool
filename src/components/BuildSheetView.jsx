@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { isDarkColor } from '../lib/color'
 import { formatInches } from '../lib/formatInches'
 import { getBounds, getEffectiveSize } from '../lib/geometry'
@@ -96,28 +97,43 @@ function getTallestPartGaps(rail, placedComponents) {
   return { bounds, above, below }
 }
 
-const PAGE_MAX_WIDTH_IN = 7
 const PAGE_MAX_HEIGHT_IN = 8.5
 const RULER_WIDTH_IN = 0.9
+const RULER_GAP_IN = 0.15
+// Budgeted separately from the ruler's own width so the two together never
+// exceed the page's content width — otherwise the diagram alone would be
+// sized to fit the *whole* page and the ruler would push the total wider,
+// spilling past the right edge.
+const PAGE_DIAGRAM_MAX_WIDTH_IN = 7 - RULER_WIDTH_IN - RULER_GAP_IN
 
 // Each rail's distance from the panel top (whichever edge/center is chosen)
 // shown in a margin to the left of the diagram instead of as a line drawn
 // through it — with several rails, running every one of those lines through
-// the panel itself gets crowded and overlaps fast.
+// the panel itself gets crowded and overlaps fast. Positioned at the rail's
+// geometric center (not measureY) so the tick lines up with the green
+// left/right position lines inside the diagram, which are drawn through
+// that same center regardless of the top/center/bottom measuring mode —
+// only the printed number reflects the chosen mode.
 function ExternalRuler({ rails, panelHeight, fitScale, useFraction, railMeasureMode }) {
   return (
     <div className="relative shrink-0" style={{ width: `${RULER_WIDTH_IN}in`, height: `${panelHeight * fitScale}in` }}>
       {rails.map((rail) => {
         const { height } = getEffectiveSize(rail)
+        const centerY = rail.y + height / 2
         const measureY = railMeasureY(rail.y, height, railMeasureMode)
+        const top = `${centerY * fitScale}in`
         return (
-          <div
-            key={rail.id}
-            className="absolute right-0 flex -translate-y-1/2 items-center gap-1"
-            style={{ top: `${measureY * fitScale}in` }}
-          >
-            <span className="text-[9px] whitespace-nowrap text-black">{formatInches(measureY, useFraction)}</span>
-            <span className="h-px w-2 bg-black" />
+          <div key={rail.id}>
+            {/* Positioned independently of the label so its own vertical
+                centering can't drift off the diagram's line — a shared flex
+                row centers on font line-height, not the true midpoint. */}
+            <span className="absolute right-0 h-px w-2 -translate-y-1/2 bg-black" style={{ top }} />
+            <span
+              className="absolute -translate-y-1/2 text-[9px] whitespace-nowrap text-black"
+              style={{ top, right: '0.3in' }}
+            >
+              {formatInches(measureY, useFraction)}
+            </span>
           </div>
         )
       })}
@@ -133,7 +149,7 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
   const rails = placedComponents.filter((c) => c.isRail)
   if (rails.length === 0 || !(panelWidth > 0) || !(panelHeight > 0)) return null
 
-  const fitScale = Math.min(PAGE_MAX_WIDTH_IN / panelWidth, PAGE_MAX_HEIGHT_IN / panelHeight)
+  const fitScale = Math.min(PAGE_DIAGRAM_MAX_WIDTH_IN / panelWidth, PAGE_MAX_HEIGHT_IN / panelHeight)
   const pxScale = fitScale * PX_PER_IN
 
   return (
@@ -148,8 +164,16 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
           railMeasureMode={railMeasureMode}
         />
         <div
-          className="relative border-2 border-black"
-          style={{ width: `${panelWidth * fitScale}in`, height: `${panelHeight * fitScale}in` }}
+          className="relative"
+          style={{
+            width: `${panelWidth * fitScale}in`,
+            height: `${panelHeight * fitScale}in`,
+            // A border would inset the panel's coordinate origin by its own
+            // width, throwing every child's position off by that much
+            // relative to the external ruler (which has no border) —
+            // outline draws the same edge without affecting layout at all.
+            outline: '2px solid black',
+          }}
         >
           {[...placedComponents]
             .sort((a, b) => (a.isRail === b.isRail ? 0 : a.isRail ? -1 : 1))
@@ -277,8 +301,13 @@ export default function BuildSheetView({
   const totalCount = partsList.reduce((sum, p) => sum + p.quantity, 0)
   const today = new Date().toLocaleDateString()
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-neutral-900/80">
+  // Rendered via a portal straight onto <body>, outside the app's own
+  // layout tree — printing otherwise only produced the first page, because
+  // this overlay's on-screen position:fixed (needed so it scrolls in place)
+  // caps its box to one page/viewport's worth of content in most browsers'
+  // print engines, silently dropping anything beyond that.
+  return createPortal(
+    <div id="build-sheet-overlay" className="fixed inset-0 z-50 overflow-y-auto bg-neutral-900/80">
       <div className="mx-auto my-6 flex max-w-3xl items-center justify-between px-4 print:hidden">
         <p className="text-sm text-neutral-300">Build sheet preview — use your browser's print dialog to save as PDF.</p>
         <div className="flex gap-2">
@@ -362,6 +391,7 @@ export default function BuildSheetView({
           railMeasureMode={railMeasureMode}
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

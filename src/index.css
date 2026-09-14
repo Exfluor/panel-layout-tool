@@ -15,25 +15,30 @@ body {
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Printing the build sheet: hide everything else on the page (the dark
-   editor UI) and show only that view, laid out fresh from the page's top
-   rather than wherever its on-screen overlay happened to be positioned. */
+/* Printing the build sheet: the sheet is rendered via a React portal
+   straight onto <body> (a sibling of #root, not nested inside the app's own
+   layout), so hiding the whole app for print is just this one rule — no
+   descendant-visibility juggling needed. The sheet's own position:fixed
+   (needed so it scrolls in place on screen) is also dropped for print: a
+   fixed/absolute box's height caps to a single page/viewport in most
+   browsers' print engines, which was silently dropping every page after
+   the first. */
 @media print {
   @page {
     size: letter;
     margin: 0.5in;
   }
-  body * {
-    visibility: hidden;
+  #root {
+    display: none !important;
   }
-  #build-sheet-print,
-  #build-sheet-print * {
-    visibility: visible;
+  #build-sheet-overlay {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    background: none !important;
   }
   #build-sheet-print {
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: static !important;
     width: 100%;
   }
   /* Browsers drop background colors on print by default (the component

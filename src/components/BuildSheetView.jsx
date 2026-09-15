@@ -13,6 +13,12 @@ const PX_PER_IN = 96 // CSS spec: 1in is always exactly 96px, on screen or on pa
 const MIN_LABEL_WIDTH_IN = 0.35
 const MIN_LABEL_HEIGHT_IN = 0.14
 
+// No formal "wireway" type exists on a component — matched by name instead,
+// since that's the established naming convention (e.g. `2" Panduit`).
+function isPanduit(c) {
+  return /panduit/i.test(c.name)
+}
+
 // Fits the panel into a fixed print-safe box, in CSS inches so it renders
 // at a predictable, consistent size both on screen and on paper (a US
 // Letter page minus margins is ~7.5in wide).
@@ -180,19 +186,38 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
             .sort((a, b) => (a.isRail === b.isRail ? 0 : a.isRail ? -1 : 1))
             .map((c) => {
               const { width, height } = getEffectiveSize(c)
+              const w = width * fitScale
+              const h = height * fitScale
+              const nameworthy = c.isRail || isPanduit(c)
+              const fitsHorizontal = w >= MIN_LABEL_WIDTH_IN && h >= MIN_LABEL_HEIGHT_IN
+              const fitsVertical = h >= MIN_LABEL_WIDTH_IN && w >= MIN_LABEL_HEIGHT_IN
+              const showLabel = nameworthy && (fitsHorizontal || fitsVertical)
+              const vertical = showLabel && !fitsHorizontal
+              const dark = isDarkColor(c.color)
               return (
                 <div
                   key={c.id}
-                  className="absolute border border-black/30"
+                  // Top-aligned rather than centered: the measurement badges
+                  // (left/right gap labels, the external ruler's tick) all
+                  // sit on this same row's vertical centerline, so a
+                  // centered name would collide with them whenever the box
+                  // has enough height to show the difference.
+                  className={`absolute flex items-start justify-center overflow-hidden border border-black/30 pt-px text-[7px] leading-tight font-medium ${dark ? 'text-white' : 'text-black'}`}
                   style={{
                     left: `${c.x * fitScale}in`,
                     top: `${c.y * fitScale}in`,
-                    width: `${width * fitScale}in`,
-                    height: `${height * fitScale}in`,
+                    width: `${w}in`,
+                    height: `${h}in`,
                     backgroundColor: c.color,
-                    opacity: c.isRail ? 1 : 0.45,
+                    opacity: nameworthy ? 1 : 0.45,
                   }}
-                />
+                >
+                  {showLabel && (
+                    <span className="truncate px-0.5" style={vertical ? { writingMode: 'vertical-rl' } : undefined}>
+                      {c.name}
+                    </span>
+                  )}
+                </div>
               )
             })}
 
@@ -393,7 +418,7 @@ export default function BuildSheetView({
           railMeasureMode={railMeasureMode}
         />
 
-        <ComponentIdentificationPage panelWidth={panelWidth} panelHeight={panelHeight} placedComponents={placedComponents} />
+        <ComponentIdentificationPage placedComponents={placedComponents} />
       </div>
     </div>,
     document.body,

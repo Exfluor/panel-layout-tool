@@ -29,13 +29,6 @@ const TAG_TIERS = 2
 const TAG_MARGIN_IN = BRACKET_RAISE_IN + TAG_GAP_IN + TAG_HEIGHT_IN + (TAG_TIERS - 1) * TAG_TIER_STEP_IN
 const SECTION_GAP_IN = 0.3
 
-function isSkippedFromLabeling(c) {
-  // No formal "wireway" type exists on a component — Panduit is matched by
-  // name instead, the established naming convention (e.g. `2" Panduit`).
-  // Rails and Panduit are already named on the rail measurements page.
-  return c.isRail || /panduit/i.test(c.name)
-}
-
 function typeKey(c) {
   return `${c.name}|${c.partNumber ?? ''}|${Math.round(c.width * 1000) / 1000}|${Math.round(c.height * 1000) / 1000}`
 }

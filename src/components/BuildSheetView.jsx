@@ -13,12 +13,6 @@ const PX_PER_IN = 96 // CSS spec: 1in is always exactly 96px, on screen or on pa
 const MIN_LABEL_WIDTH_IN = 0.35
 const MIN_LABEL_HEIGHT_IN = 0.14
 
-// No formal "wireway" type exists on a component — matched by name instead,
-// since that's the established naming convention (e.g. `2" Panduit`).
-function isPanduit(c) {
-  return /panduit/i.test(c.name)
-}
-
 // Fits the panel into a fixed print-safe box, in CSS inches so it renders
 // at a predictable, consistent size both on screen and on paper (a US
 // Letter page minus margins is ~7.5in wide).
@@ -104,6 +98,34 @@ function getTallestPartGaps(rail, placedComponents) {
   return { bounds, above, below }
 }
 
+// The vertical clearance between each consecutive pair of measured items,
+// top to bottom down the panel, plus one final measurement from the lowest
+// item's bottom edge down to the panel's own bottom edge — so the whole
+// stack is bracketed from the panel's top all the way to its bottom, not
+// just from the top down to each item.
+function getStackGaps(measuredItems, panelHeight) {
+  const sorted = measuredItems.map((item) => getBounds(item)).sort((a, b) => a.y - b.y)
+  const gaps = []
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const bottomEdge = sorted[i].y + sorted[i].height
+    const topEdge = sorted[i + 1].y
+    const gap = topEdge - bottomEdge
+    if (gap > 0.01) {
+      const x = (sorted[i].x + sorted[i].width / 2 + sorted[i + 1].x + sorted[i + 1].width / 2) / 2
+      gaps.push({ key: `stack-${i}`, y: bottomEdge, gap, x })
+    }
+  }
+  if (sorted.length > 0) {
+    const last = sorted[sorted.length - 1]
+    const bottomEdge = last.y + last.height
+    const bottomGap = panelHeight - bottomEdge
+    if (bottomGap > 0.01) {
+      gaps.push({ key: 'stack-bottom', y: bottomEdge, gap: bottomGap, x: last.x + last.width / 2 })
+    }
+  }
+  return gaps
+}
+
 const PAGE_MAX_HEIGHT_IN = 8.5
 const RULER_WIDTH_IN = 0.9
 const RULER_GAP_IN = 0.15
@@ -113,24 +135,26 @@ const RULER_GAP_IN = 0.15
 // spilling past the right edge.
 const PAGE_DIAGRAM_MAX_WIDTH_IN = 7 - RULER_WIDTH_IN - RULER_GAP_IN
 
-// Each rail's distance from the panel top (whichever edge/center is chosen)
+// Each measured item's distance from the panel top — a rail's whichever
+// edge/center is chosen, or a free-floating (not on any rail) part's plain
+// top edge, matching how the live canvas already measures a non-rail part —
 // shown in a margin to the left of the diagram instead of as a line drawn
-// through it — with several rails, running every one of those lines through
-// the panel itself gets crowded and overlaps fast. Positioned at the rail's
-// geometric center (not measureY) so the tick lines up with the green
-// left/right position lines inside the diagram, which are drawn through
-// that same center regardless of the top/center/bottom measuring mode —
-// only the printed number reflects the chosen mode.
-function ExternalRuler({ rails, panelHeight, fitScale, useFraction, railMeasureMode }) {
+// through it — with several of these, running every one of those lines
+// through the panel itself gets crowded and overlaps fast. Positioned at
+// the item's geometric center (not measureY) so the tick lines up with the
+// green left/right position lines inside the diagram, which are drawn
+// through that same center regardless of the top/center/bottom measuring
+// mode — only the printed number reflects the chosen mode.
+function ExternalRuler({ items, panelHeight, fitScale, useFraction, railMeasureMode }) {
   return (
     <div className="relative shrink-0" style={{ width: `${RULER_WIDTH_IN}in`, height: `${panelHeight * fitScale}in` }}>
-      {rails.map((rail) => {
-        const { height } = getEffectiveSize(rail)
-        const centerY = rail.y + height / 2
-        const measureY = railMeasureY(rail.y, height, railMeasureMode)
+      {items.map((c) => {
+        const { height } = getEffectiveSize(c)
+        const centerY = c.y + height / 2
+        const measureY = c.isRail ? railMeasureY(c.y, height, railMeasureMode) : c.y
         const top = `${centerY * fitScale}in`
         return (
-          <div key={rail.id}>
+          <div key={c.id}>
             {/* Positioned independently of the label so its own vertical
                 centering can't drift off the diagram's line — a shared flex
                 row centers on font line-height, not the true midpoint. */}
@@ -148,23 +172,62 @@ function ExternalRuler({ rails, panelHeight, fitScale, useFraction, railMeasureM
   )
 }
 
+// A manually-grouped cluster (the app's own Group feature) is measured as
+// one object — its leftmost/topmost extent to rightmost/bottommost — rather
+// than showing a separate ruler entry and position lines for every member,
+// which would just repeat the same handful of inches over and over.
+function consolidateGroups(items) {
+  const seenGroupIds = new Set()
+  const result = []
+  for (const item of items) {
+    if (!item.groupId) {
+      result.push(item)
+      continue
+    }
+    if (seenGroupIds.has(item.groupId)) continue
+    seenGroupIds.add(item.groupId)
+
+    const members = items.filter((c) => c.groupId === item.groupId)
+    const boundsList = members.map(getBounds)
+    const x1 = Math.min(...boundsList.map((b) => b.x))
+    const y1 = Math.min(...boundsList.map((b) => b.y))
+    const x2 = Math.max(...boundsList.map((b) => b.x + b.width))
+    const y2 = Math.max(...boundsList.map((b) => b.y + b.height))
+    result.push({ id: `group-${item.groupId}`, x: x1, y: y1, width: x2 - x1, height: y2 - y1, rotation: 0, isRail: false })
+  }
+  return result
+}
+
 // A bigger, dimension-focused redraw of the panel: every rail's position
 // (from the panel edges) and length is always shown — no selection needed —
 // plus the clearance from each rail's tallest mounted part to the nearest
-// part above/below it.
+// part above/below it. A part that isn't mounted on any rail (e.g. a
+// standalone Panduit run, or any other free-floating component) gets the
+// same position/length treatment as a rail, since a technician needs to
+// know where to install it too — only parts actually mounted on a rail are
+// left out, since the rail's own measurement already places them.
 function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFraction, railMeasureMode }) {
   const rails = placedComponents.filter((c) => c.isRail)
-  if (rails.length === 0 || !(panelWidth > 0) || !(panelHeight > 0)) return null
+  const measuredItems = consolidateGroups(placedComponents.filter((c) => c.isRail || c.mountedOnRailId == null))
+  if (measuredItems.length === 0 || !(panelWidth > 0) || !(panelHeight > 0)) return null
 
   const fitScale = Math.min(PAGE_DIAGRAM_MAX_WIDTH_IN / panelWidth, PAGE_MAX_HEIGHT_IN / panelHeight)
   const pxScale = fitScale * PX_PER_IN
+  // Extendable parts (DIN rail, Panduit) are cut to whatever length the
+  // layout needs, so a "distance to the next item" for one of them isn't a
+  // meaningful fixed measurement the way it is for a fixed-size part —
+  // excluded from the stack-gap measurements. A manually-grouped cluster
+  // has no `resizable` flag at all (it's synthetic, not a library part),
+  // which correctly keeps it included.
+  const stackGapItems = measuredItems.filter((c) => !c.resizable)
+  const stackGaps = getStackGaps(stackGapItems, panelHeight)
 
   return (
     <div className="break-before-page">
       <h2 className="mb-2 text-base font-bold tracking-wide uppercase">DIN Rail Measurements</h2>
       <div className="flex items-start gap-1">
         <ExternalRuler
-          rails={rails}
+          items={measuredItems}
           panelHeight={panelHeight}
           fitScale={fitScale}
           useFraction={useFraction}
@@ -188,7 +251,7 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
               const { width, height } = getEffectiveSize(c)
               const w = width * fitScale
               const h = height * fitScale
-              const nameworthy = c.isRail || isPanduit(c)
+              const nameworthy = c.isRail || c.mountedOnRailId == null
               const fitsHorizontal = w >= MIN_LABEL_WIDTH_IN && h >= MIN_LABEL_HEIGHT_IN
               const fitsVertical = h >= MIN_LABEL_WIDTH_IN && w >= MIN_LABEL_HEIGHT_IN
               const showLabel = nameworthy && (fitsHorizontal || fitsVertical)
@@ -221,20 +284,20 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
               )
             })}
 
-          {rails.map((rail) => {
-            const { width, height } = getEffectiveSize(rail)
+          {measuredItems.map((c) => {
+            const { width, height } = getEffectiveSize(c)
             const part = {
-              id: rail.id,
-              x: rail.x,
-              y: rail.y,
+              id: c.id,
+              x: c.x,
+              y: c.y,
               width,
               height,
-              isRail: true,
-              measureY: railMeasureY(rail.y, height, railMeasureMode),
+              isRail: c.isRail,
+              measureY: c.isRail ? railMeasureY(c.y, height, railMeasureMode) : c.y,
             }
             return (
               <PartDimensionGuides
-                key={rail.id}
+                key={c.id}
                 part={part}
                 panelWidth={panelWidth}
                 scale={pxScale}
@@ -296,10 +359,26 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
               </div>
             )
           })}
+
+          {stackGaps.map((g) => (
+            <div key={g.key}>
+              <div
+                className="absolute border-l border-dashed border-blue-500"
+                style={{ left: `${g.x * fitScale}in`, top: `${g.y * fitScale}in`, height: `${g.gap * fitScale}in` }}
+              />
+              <span
+                className="absolute -translate-x-1/2 -translate-y-1/2 rounded bg-white px-1 text-[9px] whitespace-nowrap text-blue-700"
+                style={{ left: `${g.x * fitScale}in`, top: `${(g.y + g.gap / 2) * fitScale}in` }}
+              >
+                {formatInches(g.gap, useFraction)}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
       <p className="mt-2 text-xs text-neutral-600">
-        Left margin: each rail's distance from the panel top. Green dashed lines: each rail's distance from the
+        Left margin: each rail's distance from the panel top. Blue dashed lines: the gap between each consecutive
+        item down the panel, and from the lowest item down to the panel's bottom edge. Green dashed lines: each rail's distance from the
         panel's left/right edges. Red dashed lines: clearance from the tallest component mounted on that rail to
         whatever is directly above/below it.
       </p>

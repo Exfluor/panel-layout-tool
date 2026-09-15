@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { isDarkColor } from '../lib/color'
 import { formatInches } from '../lib/formatInches'
 import { getBounds, getEffectiveSize } from '../lib/geometry'
+import ComponentIdentificationPage from './ComponentIdentificationPage'
 import PartDimensionGuides from './PartDimensionGuides'
 
 const PX_PER_IN = 96 // CSS spec: 1in is always exactly 96px, on screen or on paper
@@ -282,11 +283,12 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
 }
 
 // A printable technician build sheet: project title, a labeled diagram of
-// the panel, DIN rail measurements, and a Bill of Materials. A later
-// iteration adds a labeled/arrowed component layout with identical-adjacent
-// parts bracketed together as one callout. Deliberately styled
-// light-on-white regardless of the app's dark theme, since it's meant to be
-// read on paper.
+// the panel, a Bill of Materials, DIN rail measurements, and a component
+// identification page (names shown in-place on components large enough to
+// hold them; small ones called out from a margin, with a bracket over any
+// run of 2+ identical adjacent parts labeling the whole run once).
+// Deliberately styled light-on-white regardless of the app's dark theme,
+// since it's meant to be read on paper.
 export default function BuildSheetView({
   projectName,
   panelWidth,
@@ -390,6 +392,8 @@ export default function BuildSheetView({
           useFraction={useFraction}
           railMeasureMode={railMeasureMode}
         />
+
+        <ComponentIdentificationPage panelWidth={panelWidth} panelHeight={panelHeight} placedComponents={placedComponents} />
       </div>
     </div>,
     document.body,

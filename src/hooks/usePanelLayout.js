@@ -3,7 +3,7 @@ import { getBounds, getEffectiveSize, rectsOverlap } from '../lib/geometry'
 
 const MAX_HISTORY = 5
 
-export function usePanelLayout(initialComponents = []) {
+export function usePanelLayout(initialComponents = [], panelWidth = 0, panelHeight = 0) {
   const [placedComponents, setPlacedComponentsRaw] = useState(initialComponents)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   // The most recently added-to-selection component — the fixed reference
@@ -38,11 +38,17 @@ export function usePanelLayout(initialComponents = []) {
   // Places `quantity` copies flush in a row starting at (x, y), extending
   // along X by the component's own width — one drag places a whole row
   // instead of N separate drags. Also remembers where the row ended so
-  // repeatLastPlacement can continue it.
+  // repeatLastPlacement can continue it. The starting point is clamped so
+  // the whole row stays inside the panel — repeatLastPlacement in
+  // particular just continues from wherever the last row ended, with
+  // nothing else re-checking that that's still in-bounds.
   function placeMultiple(component, x, y, quantity = 1) {
     const count = Math.max(1, Math.floor(quantity))
     const isRail = component.isRail ?? false
     const ids = Array.from({ length: count }, () => crypto.randomUUID())
+    const rowWidth = count * component.width
+    const clampedX = panelWidth > 0 ? Math.min(Math.max(x, 0), Math.max(0, panelWidth - rowWidth)) : x
+    const clampedY = panelHeight > 0 ? Math.min(Math.max(y, 0), Math.max(0, panelHeight - component.height)) : y
 
     setPlacedComponents((prev) => {
       let working = prev
@@ -58,8 +64,8 @@ export function usePanelLayout(initialComponents = []) {
           height: component.height,
           color: component.color,
           isRail,
-          x: x + i * component.width,
-          y,
+          x: clampedX + i * component.width,
+          y: clampedY,
           rotation: 0,
           groupId: null,
           mountedOnRailId: null,
@@ -76,7 +82,7 @@ export function usePanelLayout(initialComponents = []) {
     })
 
     setSelectedIds(new Set(ids))
-    setLastPlacement({ component, nextX: x + count * component.width, y, quantity: count })
+    setLastPlacement({ component, nextX: clampedX + count * component.width, y: clampedY, quantity: count })
     return ids
   }
 
@@ -145,7 +151,29 @@ export function usePanelLayout(initialComponents = []) {
     if (deltaX === 0 && deltaY === 0) return
     setLastPlacement(null)
     setPlacedComponents((prev) => {
-      const moved = prev.map((c) => (ids.includes(c.id) ? { ...c, x: c.x + deltaX, y: c.y + deltaY } : c))
+      // Clamp the delta against the whole group's combined bounding box, not
+      // just whichever member the caller measured from — a member positioned
+      // further toward an edge than the reference point must not be allowed
+      // to cross the panel wall even if the reference point itself stays in
+      // bounds.
+      let clampedDeltaX = deltaX
+      let clampedDeltaY = deltaY
+      if (panelWidth > 0 && panelHeight > 0) {
+        const groupBounds = prev.filter((c) => ids.includes(c.id)).map(getBounds)
+        if (groupBounds.length > 0) {
+          const groupX1 = Math.min(...groupBounds.map((b) => b.x))
+          const groupY1 = Math.min(...groupBounds.map((b) => b.y))
+          const groupX2 = Math.max(...groupBounds.map((b) => b.x + b.width))
+          const groupY2 = Math.max(...groupBounds.map((b) => b.y + b.height))
+          if (groupX1 + clampedDeltaX < 0) clampedDeltaX = -groupX1
+          if (groupX2 + clampedDeltaX > panelWidth) clampedDeltaX = panelWidth - groupX2
+          if (groupY1 + clampedDeltaY < 0) clampedDeltaY = -groupY1
+          if (groupY2 + clampedDeltaY > panelHeight) clampedDeltaY = panelHeight - groupY2
+        }
+      }
+      const moved = prev.map((c) =>
+        ids.includes(c.id) ? { ...c, x: c.x + clampedDeltaX, y: c.y + clampedDeltaY } : c
+      )
       return moved.map((c) => {
         if (!ids.includes(c.id) || c.isRail) return c
         const bounds = getBounds(c)
@@ -339,6 +367,22 @@ export function usePanelLayout(initialComponents = []) {
     if (!clipboard || clipboard.length === 0) return
     setLastPlacement(null)
 
+    // The paste offset is clamped to the clipboard's own combined bounding
+    // box, not applied blindly — copying something already near an edge
+    // would otherwise offset it straight past that edge with nothing to
+    // pull it back in.
+    const boundsList = clipboard.map(getBounds)
+    const x1 = Math.min(...boundsList.map((b) => b.x))
+    const y1 = Math.min(...boundsList.map((b) => b.y))
+    const x2 = Math.max(...boundsList.map((b) => b.x + b.width))
+    const y2 = Math.max(...boundsList.map((b) => b.y + b.height))
+    const clampedX1 =
+      panelWidth > 0 ? Math.min(Math.max(x1 + PASTE_OFFSET, 0), Math.max(0, panelWidth - (x2 - x1))) : x1 + PASTE_OFFSET
+    const clampedY1 =
+      panelHeight > 0 ? Math.min(Math.max(y1 + PASTE_OFFSET, 0), Math.max(0, panelHeight - (y2 - y1))) : y1 + PASTE_OFFSET
+    const offsetX = clampedX1 - x1
+    const offsetY = clampedY1 - y1
+
     const groupIdMap = new Map()
     const pasted = clipboard.map((c) => {
       let newGroupId = null
@@ -349,8 +393,8 @@ export function usePanelLayout(initialComponents = []) {
       return {
         ...c,
         id: crypto.randomUUID(),
-        x: c.x + PASTE_OFFSET,
-        y: c.y + PASTE_OFFSET,
+        x: c.x + offsetX,
+        y: c.y + offsetY,
         groupId: newGroupId,
         mountedOnRailId: null,
       }

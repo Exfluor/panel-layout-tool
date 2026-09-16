@@ -198,7 +198,7 @@ export default function PanelCanvas({
         if (e.target === e.currentTarget) onClearSelection()
       }}
       onPointerDown={handlePointerDown}
-      className="relative border border-neutral-500"
+      className="relative outline outline-1 -outline-offset-1 outline-neutral-500"
       style={{
         width: panelWidth * scale,
         height: panelHeight * scale,

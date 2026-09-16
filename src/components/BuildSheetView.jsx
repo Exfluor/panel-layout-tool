@@ -25,7 +25,7 @@ function PanelDiagram({ panelWidth, panelHeight, placedComponents }) {
 
   return (
     <div
-      className="relative border-2 border-black"
+      className="relative outline outline-2 -outline-offset-2 outline-black"
       style={{ width: `${panelWidth * scale}in`, height: `${panelHeight * scale}in` }}
     >
       {[...placedComponents]
@@ -230,7 +230,7 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
       <h2 className="mb-2 text-base font-bold tracking-wide uppercase">DIN Rail Measurements</h2>
       <div className="flex items-start gap-1">
         <ExternalRuler
-          items={measuredItems}
+          items={rails}
           panelHeight={panelHeight}
           fitScale={fitScale}
           useFraction={useFraction}
@@ -385,7 +385,7 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
         </div>
       </div>
       <p className="mt-2 text-xs text-neutral-600">
-        Left margin: each item's distance from the panel top. Green dashed lines: each item's distance from the
+        Left margin: each DIN rail's distance from the panel top. Green dashed lines: each item's distance from the
         panel's left/right edges. Red dashed lines: clearance from a rail's tallest mounted part (or a free-standing
         part/group) to whatever is directly above/below it, and from the lowest such item down to the panel's own
         bottom edge. Extendable parts (Panduit, DIN rail) don't get that red clearance measurement themselves — a
@@ -397,12 +397,12 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
 }
 
 // A printable technician build sheet: project title, a labeled diagram of
-// the panel, a Bill of Materials, DIN rail measurements, and a component
-// identification page (names shown in-place on components large enough to
-// hold them; small ones called out from a margin, with a bracket over any
-// run of 2+ identical adjacent parts labeling the whole run once).
-// Deliberately styled light-on-white regardless of the app's dark theme,
-// since it's meant to be read on paper.
+// the panel, DIN rail measurements, a component identification page (names
+// shown in-place on components large enough to hold them; small ones called
+// out from a margin, with a bracket over any run of 2+ identical adjacent
+// parts labeling the whole run once), and — last, optionally — a Bill of
+// Materials. Deliberately styled light-on-white regardless of the app's
+// dark theme, since it's meant to be read on paper.
 export default function BuildSheetView({
   projectName,
   panelWidth,
@@ -412,6 +412,7 @@ export default function BuildSheetView({
   partNotes,
   useFraction,
   railMeasureMode,
+  includeBOM = true,
   onClose,
 }) {
   const totalCount = partsList.reduce((sum, p) => sum + p.quantity, 0)
@@ -451,7 +452,8 @@ export default function BuildSheetView({
         <div className="mb-6 border-b-2 border-black pb-4">
           <h1 className="text-2xl font-bold">{projectName || 'Untitled panel'}</h1>
           <p className="mt-1 text-sm text-neutral-600">
-            {panelWidth}&Prime; &times; {panelHeight}&Prime; internal &middot; Generated {today}
+            {formatInches(panelWidth, useFraction)} &times; {formatInches(panelHeight, useFraction)} internal &middot; Generated{' '}
+            {today}
           </p>
         </div>
 
@@ -459,45 +461,6 @@ export default function BuildSheetView({
         <div className="mb-6 flex justify-center">
           <PanelDiagram panelWidth={panelWidth} panelHeight={panelHeight} placedComponents={placedComponents} />
         </div>
-
-        <h2 className="mb-2 text-base font-bold tracking-wide uppercase">Bill of Materials</h2>
-        {partsList.length === 0 ? (
-          <p className="text-sm text-neutral-600">No components placed on this panel.</p>
-        ) : (
-          <table className="w-full border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b-2 border-black">
-                <th className="py-1.5 pr-3 font-semibold">Name</th>
-                <th className="py-1.5 pr-3 font-semibold">Part #</th>
-                <th className="py-1.5 pr-3 font-semibold">Dimensions</th>
-                <th className="py-1.5 pr-3 font-semibold">Qty</th>
-                <th className="py-1.5 font-semibold">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {partsList.map((part) => (
-                <tr key={part.key} className="border-b border-neutral-300">
-                  <td className="py-1.5 pr-3">{part.name}</td>
-                  <td className="py-1.5 pr-3 text-neutral-700">{part.partNumber || '—'}</td>
-                  <td className="py-1.5 pr-3 text-neutral-700">
-                    {formatInches(part.width, useFraction)} &times; {formatInches(part.height, useFraction)}
-                  </td>
-                  <td className="py-1.5 pr-3 text-neutral-700">{part.quantity}</td>
-                  <td className="py-1.5 text-neutral-700">{partNotes?.[part.key] || ''}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-black text-sm font-semibold">
-                <td className="py-1.5" colSpan={3}>
-                  Total
-                </td>
-                <td className="py-1.5">{totalCount}</td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-        )}
 
         <RailMeasurementsPage
           panelWidth={panelWidth}
@@ -508,6 +471,49 @@ export default function BuildSheetView({
         />
 
         <ComponentIdentificationPage placedComponents={placedComponents} />
+
+        {includeBOM && (
+          <div className="break-before-page">
+            <h2 className="mb-2 text-base font-bold tracking-wide uppercase">Bill of Materials</h2>
+            {partsList.length === 0 ? (
+              <p className="text-sm text-neutral-600">No components placed on this panel.</p>
+            ) : (
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b-2 border-black">
+                    <th className="py-1.5 pr-3 font-semibold">Name</th>
+                    <th className="py-1.5 pr-3 font-semibold">Part #</th>
+                    <th className="py-1.5 pr-3 font-semibold">Dimensions</th>
+                    <th className="py-1.5 pr-3 font-semibold">Qty</th>
+                    <th className="py-1.5 font-semibold">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partsList.map((part) => (
+                    <tr key={part.key} className="border-b border-neutral-300">
+                      <td className="py-1.5 pr-3">{part.name}</td>
+                      <td className="py-1.5 pr-3 text-neutral-700">{part.partNumber || '—'}</td>
+                      <td className="py-1.5 pr-3 text-neutral-700">
+                        {formatInches(part.width, useFraction)} &times; {formatInches(part.height, useFraction)}
+                      </td>
+                      <td className="py-1.5 pr-3 text-neutral-700">{part.quantity}</td>
+                      <td className="py-1.5 text-neutral-700">{partNotes?.[part.key] || ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-black text-sm font-semibold">
+                    <td className="py-1.5" colSpan={3}>
+                      Total
+                    </td>
+                    <td className="py-1.5">{totalCount}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        )}
       </div>
     </div>,
     document.body,

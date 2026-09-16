@@ -2,6 +2,7 @@ import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import BuildSheetOptionsDialog from '../components/BuildSheetOptionsDialog'
 import BuildSheetView from '../components/BuildSheetView'
 import ComponentLibrarySidebar, { UNCATEGORIZED_DROP_ID } from '../components/ComponentLibrarySidebar'
 import Minimap from '../components/Minimap'
@@ -45,7 +46,9 @@ export default function CanvasPage() {
   const setLibrary = project ? setSessionLibrary : setGlobalLibrary
 
   const [partNotes, setPartNotes] = useState(() => project?.partNotes ?? {})
-  const layout = usePanelLayout(project?.placedComponents ?? [])
+  const panelWidth = state?.panelWidth ?? 0
+  const panelHeight = state?.panelHeight ?? 0
+  const layout = usePanelLayout(project?.placedComponents ?? [], panelWidth, panelHeight)
 
   const sidebar = useResizableWidth('panelBuilder.sidebarWidth', 288, { min: 220, max: 480 })
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true)
@@ -57,7 +60,9 @@ export default function CanvasPage() {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [buildSheetOptionsOpen, setBuildSheetOptionsOpen] = useState(false)
   const [buildSheetOpen, setBuildSheetOpen] = useState(false)
+  const [buildSheetIncludeBOM, setBuildSheetIncludeBOM] = useState(true)
   const [justSaved, setJustSaved] = useState(false)
   const [unsavedPromptOpen, setUnsavedPromptOpen] = useState(false)
   const navigateAfterSaveRef = useRef(false)
@@ -68,9 +73,6 @@ export default function CanvasPage() {
       partNotes: project?.partNotes ?? {},
     }),
   )
-
-  const panelWidth = state?.panelWidth ?? 0
-  const panelHeight = state?.panelHeight ?? 0
 
   const availableWidth = containerSize.width - PADDING * 2 - RULER_WIDTH
   const availableHeight = containerSize.height - PADDING * 2
@@ -500,9 +502,9 @@ export default function CanvasPage() {
             </button>
             <button
               type="button"
-              onClick={() => setBuildSheetOpen(true)}
+              onClick={() => setBuildSheetOptionsOpen(true)}
               className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
-              title="A printable title + Bill of Materials to hand to a technician"
+              title="A printable panel diagram, measurements, and Bill of Materials to hand to a technician"
             >
               Build Sheet
             </button>
@@ -634,6 +636,18 @@ export default function CanvasPage() {
         />
       )}
 
+      {buildSheetOptionsOpen && (
+        <BuildSheetOptionsDialog
+          initialIncludeBOM={buildSheetIncludeBOM}
+          onConfirm={(includeBOM) => {
+            setBuildSheetIncludeBOM(includeBOM)
+            setBuildSheetOptionsOpen(false)
+            setBuildSheetOpen(true)
+          }}
+          onCancel={() => setBuildSheetOptionsOpen(false)}
+        />
+      )}
+
       {buildSheetOpen && (
         <BuildSheetView
           projectName={currentProjectName}
@@ -644,6 +658,7 @@ export default function CanvasPage() {
           partNotes={partNotes}
           useFraction={useFraction}
           railMeasureMode={railMeasureMode}
+          includeBOM={buildSheetIncludeBOM}
           onClose={() => setBuildSheetOpen(false)}
         />
       )}

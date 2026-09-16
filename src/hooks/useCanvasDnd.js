@@ -158,6 +158,8 @@ export function useCanvasDnd({
         gridSnapEnabled,
         measureOffset: getMeasureOffset(Boolean(primary.isRail), height, railMeasureMode),
       })
+      // Panel-bounds clamping against the whole group's combined bounding box
+      // (not just this primary item) happens centrally in moveGroup().
       return {
         type: 'move',
         groupIds: origin.groupIds,

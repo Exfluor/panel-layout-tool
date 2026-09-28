@@ -2,6 +2,7 @@ import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import AddDoorDialog from '../components/AddDoorDialog'
 import BuildSheetOptionsDialog from '../components/BuildSheetOptionsDialog'
 import BuildSheetView from '../components/BuildSheetView'
 import ComponentLibrarySidebar, { UNCATEGORIZED_DROP_ID } from '../components/ComponentLibrarySidebar'
@@ -48,7 +49,24 @@ export default function CanvasPage() {
   const [partNotes, setPartNotes] = useState(() => project?.partNotes ?? {})
   const panelWidth = state?.panelWidth ?? 0
   const panelHeight = state?.panelHeight ?? 0
-  const layout = usePanelLayout(project?.placedComponents ?? [], panelWidth, panelHeight)
+  const panelLayout = usePanelLayout(project?.placedComponents ?? [], panelWidth, panelHeight)
+
+  // The door is an optional second surface within the same project — its own
+  // canvas, dimensions, and part placements, sharing the same component
+  // library. Both layout hooks are always mounted (Rules of Hooks) even when
+  // there's no door yet (width/height just stay 0, so its canvas never
+  // renders); `layout` below picks whichever surface is currently active.
+  const [hasDoor, setHasDoor] = useState(() => project?.hasDoor ?? false)
+  const [doorWidth, setDoorWidth] = useState(() => project?.doorWidth ?? 0)
+  const [doorHeight, setDoorHeight] = useState(() => project?.doorHeight ?? 0)
+  const [doorPartNotes, setDoorPartNotes] = useState(() => project?.doorPartNotes ?? {})
+  const [activeSurface, setActiveSurface] = useState('panel')
+  const [addDoorOpen, setAddDoorOpen] = useState(false)
+  const doorLayout = usePanelLayout(project?.doorPlacedComponents ?? [], doorWidth, doorHeight)
+
+  const layout = activeSurface === 'door' ? doorLayout : panelLayout
+  const activeWidth = activeSurface === 'door' ? doorWidth : panelWidth
+  const activeHeight = activeSurface === 'door' ? doorHeight : panelHeight
 
   const sidebar = useResizableWidth('panelBuilder.sidebarWidth', 288, { min: 220, max: 480 })
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true)
@@ -71,46 +89,80 @@ export default function CanvasPage() {
       placedComponents: project?.placedComponents ?? [],
       library: project?.componentLibrary ?? defaultComponents,
       partNotes: project?.partNotes ?? {},
+      hasDoor: project?.hasDoor ?? false,
+      doorWidth: project?.doorWidth ?? 0,
+      doorHeight: project?.doorHeight ?? 0,
+      doorPlacedComponents: project?.doorPlacedComponents ?? [],
+      doorPartNotes: project?.doorPartNotes ?? {},
     }),
   )
 
   const availableWidth = containerSize.width - PADDING * 2 - RULER_WIDTH
   const availableHeight = containerSize.height - PADDING * 2
   const fitScale =
-    panelWidth > 0 && panelHeight > 0 && availableWidth > 0 && availableHeight > 0
-      ? Math.min(availableWidth / panelWidth, availableHeight / panelHeight)
+    activeWidth > 0 && activeHeight > 0 && availableWidth > 0 && availableHeight > 0
+      ? Math.min(availableWidth / activeWidth, availableHeight / activeHeight)
       : 0
 
   const zoomPan = useZoomPan(containerRef, fitScale)
   const scale = zoomPan.scale
   const isZoomedBeyondFit =
-    scale > 0 && (panelWidth * scale > availableWidth || panelHeight * scale > availableHeight)
+    scale > 0 && (activeWidth * scale > availableWidth || activeHeight * scale > availableHeight)
 
-  const dnd = useCanvasDnd({
+  const panelDnd = useCanvasDnd({
     panelWidth,
     panelHeight,
     scale,
     canvasRef,
-    layout,
+    layout: panelLayout,
     gridSnapEnabled,
     railMeasureMode,
   })
+  const doorDnd = useCanvasDnd({
+    panelWidth: doorWidth,
+    panelHeight: doorHeight,
+    scale,
+    canvasRef,
+    layout: doorLayout,
+    gridSnapEnabled,
+    railMeasureMode,
+  })
+  const dnd = activeSurface === 'door' ? doorDnd : panelDnd
 
   const placedArea = layout.placedComponents.reduce((sum, c) => sum + c.width * c.height, 0)
-  const freeArea = panelWidth * panelHeight - placedArea
+  const freeArea = activeWidth * activeHeight - placedArea
   const partsList = computePartsList(layout.placedComponents)
+  const panelPartsList = computePartsList(panelLayout.placedComponents)
+  const notes = activeSurface === 'door' ? doorPartNotes : partNotes
 
   function handleNotesChange(key, text) {
-    setPartNotes((prev) => ({ ...prev, [key]: text }))
+    if (activeSurface === 'door') {
+      setDoorPartNotes((prev) => ({ ...prev, [key]: text }))
+    } else {
+      setPartNotes((prev) => ({ ...prev, [key]: text }))
+    }
   }
 
   function isDirty() {
     const current = JSON.stringify({
-      placedComponents: layout.placedComponents,
+      placedComponents: panelLayout.placedComponents,
       library: library ?? defaultComponents,
       partNotes,
+      hasDoor,
+      doorWidth,
+      doorHeight,
+      doorPlacedComponents: doorLayout.placedComponents,
+      doorPartNotes,
     })
     return current !== lastSavedSnapshotRef.current
+  }
+
+  function handleAddDoor(w, h) {
+    setDoorWidth(w)
+    setDoorHeight(h)
+    setHasDoor(true)
+    setAddDoorOpen(false)
+    setActiveSurface('door')
   }
 
   // Autosaves a project that's already been named once — a change (move,
@@ -122,7 +174,18 @@ export default function CanvasPage() {
     if (!currentProjectId || !isDirty()) return
     const timer = setTimeout(() => saveAs(currentProjectName), 1500)
     return () => clearTimeout(timer)
-  }, [layout.placedComponents, library, partNotes, currentProjectId, currentProjectName])
+  }, [
+    panelLayout.placedComponents,
+    doorLayout.placedComponents,
+    library,
+    partNotes,
+    doorPartNotes,
+    hasDoor,
+    doorWidth,
+    doorHeight,
+    currentProjectId,
+    currentProjectName,
+  ])
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -188,8 +251,10 @@ export default function CanvasPage() {
     // Non-dimension edits (name, color, part #, etc.) also push out to every
     // already-placed instance of this component; folder renames/collapses go
     // through this same path but never match a placed component's id, so
-    // this is a no-op for them.
-    layout.syncFromLibrary(id, updates)
+    // this is a no-op for them. The library is shared by both surfaces, so
+    // both need the sync, not just whichever is currently active.
+    panelLayout.syncFromLibrary(id, updates)
+    doorLayout.syncFromLibrary(id, updates)
   }
 
   function handleDelete(id) {
@@ -207,9 +272,14 @@ export default function CanvasPage() {
         name,
         panelWidth,
         panelHeight,
-        placedComponents: layout.placedComponents,
+        placedComponents: panelLayout.placedComponents,
         componentLibrary: library ?? defaultComponents,
         partNotes,
+        hasDoor,
+        doorWidth,
+        doorHeight,
+        doorPlacedComponents: doorLayout.placedComponents,
+        doorPartNotes,
         createdAt: existingIndex >= 0 ? prev[existingIndex].createdAt : now,
         updatedAt: now,
       }
@@ -222,9 +292,14 @@ export default function CanvasPage() {
     })
 
     lastSavedSnapshotRef.current = JSON.stringify({
-      placedComponents: layout.placedComponents,
+      placedComponents: panelLayout.placedComponents,
       library: library ?? defaultComponents,
       partNotes,
+      hasDoor,
+      doorWidth,
+      doorHeight,
+      doorPlacedComponents: doorLayout.placedComponents,
+      doorPartNotes,
     })
 
     setCurrentProjectId(id)
@@ -281,9 +356,14 @@ export default function CanvasPage() {
       name,
       panelWidth,
       panelHeight,
-      placedComponents: layout.placedComponents,
+      placedComponents: panelLayout.placedComponents,
       componentLibrary: library ?? defaultComponents,
       partNotes,
+      hasDoor,
+      doorWidth,
+      doorHeight,
+      doorPlacedComponents: doorLayout.placedComponents,
+      doorPartNotes,
     })
     setExportDialogOpen(false)
   }
@@ -395,9 +475,37 @@ export default function CanvasPage() {
                 )}
               </h1>
               <p className="text-sm text-neutral-400">
-                {panelWidth}&Prime; &times; {panelHeight}&Prime; internal
+                {hasDoor && (activeSurface === 'door' ? 'Door' : 'Panel')} {hasDoor && '· '}
+                {activeWidth}&Prime; &times; {activeHeight}&Prime; internal
               </p>
             </div>
+            {hasDoor ? (
+              <div className="flex items-center gap-1 rounded border border-neutral-600 p-0.5 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setActiveSurface('panel')}
+                  className={`rounded px-2 py-1 ${activeSurface === 'panel' ? 'bg-blue-600 text-white' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                >
+                  Panel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSurface('door')}
+                  className={`rounded px-2 py-1 ${activeSurface === 'door' ? 'bg-blue-600 text-white' : 'text-neutral-300 hover:bg-neutral-800'}`}
+                >
+                  Door
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddDoorOpen(true)}
+                title="Add a door surface to this project, with its own canvas and layout"
+                className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
+              >
+                + Door
+              </button>
+            )}
             <div className="text-right text-sm text-neutral-400">
               Free area
               <div className="text-base font-semibold text-neutral-100">
@@ -503,8 +611,13 @@ export default function CanvasPage() {
             <button
               type="button"
               onClick={() => setBuildSheetOptionsOpen(true)}
-              className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800"
-              title="A printable panel diagram, measurements, and Bill of Materials to hand to a technician"
+              disabled={activeSurface === 'door'}
+              className="rounded border border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-800 disabled:opacity-40 disabled:hover:bg-transparent"
+              title={
+                activeSurface === 'door'
+                  ? 'Build Sheet only covers the panel for now'
+                  : 'A printable panel diagram, measurements, and Bill of Materials to hand to a technician'
+              }
             >
               Build Sheet
             </button>
@@ -523,7 +636,7 @@ export default function CanvasPage() {
                 {scale > 0 && (
                   <RailExternalRuler
                     rails={layout.placedComponents.filter((c) => c.isRail)}
-                    panelHeight={panelHeight}
+                    panelHeight={activeHeight}
                     scale={scale}
                     useFraction={useFraction}
                     railMeasureMode={railMeasureMode}
@@ -531,8 +644,8 @@ export default function CanvasPage() {
                 )}
                 <PanelCanvas
                   canvasRef={canvasRef}
-                  panelWidth={panelWidth}
-                  panelHeight={panelHeight}
+                  panelWidth={activeWidth}
+                  panelHeight={activeHeight}
                   scale={scale}
                   placedComponents={layout.placedComponents}
                   selectedIds={layout.selectedIds}
@@ -557,8 +670,8 @@ export default function CanvasPage() {
             {isZoomedBeyondFit && (
               <Minimap
                 placedComponents={layout.placedComponents}
-                panelWidth={panelWidth}
-                panelHeight={panelHeight}
+                panelWidth={activeWidth}
+                panelHeight={activeHeight}
                 scale={scale}
                 scrollPos={zoomPan.scrollPos}
                 viewportWidth={containerSize.width}
@@ -583,7 +696,7 @@ export default function CanvasPage() {
 
           <PartsListPanel
             partsList={partsList}
-            notes={partNotes}
+            notes={notes}
             onNotesChange={handleNotesChange}
             selectedIds={layout.selectedIds}
             onSelectPart={layout.selectByIds}
@@ -653,8 +766,8 @@ export default function CanvasPage() {
           projectName={currentProjectName}
           panelWidth={panelWidth}
           panelHeight={panelHeight}
-          placedComponents={layout.placedComponents}
-          partsList={partsList}
+          placedComponents={panelLayout.placedComponents}
+          partsList={panelPartsList}
           partNotes={partNotes}
           useFraction={useFraction}
           railMeasureMode={railMeasureMode}
@@ -662,6 +775,8 @@ export default function CanvasPage() {
           onClose={() => setBuildSheetOpen(false)}
         />
       )}
+
+      {addDoorOpen && <AddDoorDialog onAdd={handleAddDoor} onCancel={() => setAddDoorOpen(false)} />}
 
       {unsavedPromptOpen && (
         <UnsavedChangesDialog

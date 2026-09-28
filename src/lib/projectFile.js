@@ -6,6 +6,11 @@ export function exportProjectToFile(project) {
     placedComponents: project.placedComponents,
     componentLibrary: project.componentLibrary,
     partNotes: project.partNotes,
+    hasDoor: project.hasDoor ?? false,
+    doorWidth: project.doorWidth ?? 0,
+    doorHeight: project.doorHeight ?? 0,
+    doorPlacedComponents: project.doorPlacedComponents ?? [],
+    doorPartNotes: project.doorPartNotes ?? {},
     exportedAt: new Date().toISOString(),
   }
 
@@ -51,7 +56,19 @@ export function parseProjectFile(text) {
     throw new Error('That file is not a valid project.')
   }
 
-  const { name, panelWidth, panelHeight, placedComponents, componentLibrary, partNotes } = data
+  const {
+    name,
+    panelWidth,
+    panelHeight,
+    placedComponents,
+    componentLibrary,
+    partNotes,
+    hasDoor,
+    doorWidth,
+    doorHeight,
+    doorPlacedComponents,
+    doorPartNotes,
+  } = data
 
   if (!(Number(panelWidth) > 0) || !(Number(panelHeight) > 0)) {
     throw new Error('That file is missing valid panel dimensions.')
@@ -72,6 +89,11 @@ export function parseProjectFile(text) {
     placedComponents,
     componentLibrary,
     partNotes: partNotes && typeof partNotes === 'object' ? partNotes : {},
+    hasDoor: Boolean(hasDoor) && Number(doorWidth) > 0 && Number(doorHeight) > 0,
+    doorWidth: Number(doorWidth) > 0 ? Number(doorWidth) : 0,
+    doorHeight: Number(doorHeight) > 0 ? Number(doorHeight) : 0,
+    doorPlacedComponents: Array.isArray(doorPlacedComponents) ? doorPlacedComponents : [],
+    doorPartNotes: doorPartNotes && typeof doorPartNotes === 'object' ? doorPartNotes : {},
     createdAt: now,
     updatedAt: now,
   }

@@ -37,7 +37,7 @@ function PanelDiagram({ panelWidth, panelHeight, placedComponents }) {
           return (
             <div
               key={c.id}
-              className={`absolute flex items-center justify-center overflow-hidden border border-black/40 text-[7px] leading-tight font-medium ${dark ? 'text-white' : 'text-black'}`}
+              className={`absolute flex items-center justify-center overflow-hidden border border-black/40 text-[7px] leading-tight font-medium ${dark ? 'text-white' : 'text-black'} ${c.shape === 'circle' ? 'rounded-full' : ''}`}
               style={{
                 left: `${c.x * scale}in`,
                 top: `${c.y * scale}in`,
@@ -268,7 +268,7 @@ function RailMeasurementsPage({ panelWidth, panelHeight, placedComponents, useFr
                   // sit on this same row's vertical centerline, so a
                   // centered name would collide with them whenever the box
                   // has enough height to show the difference.
-                  className={`absolute flex items-start justify-center overflow-hidden border border-black/30 pt-px text-[7px] leading-tight font-medium ${dark ? 'text-white' : 'text-black'}`}
+                  className={`absolute flex items-start justify-center overflow-hidden border border-black/30 pt-px text-[7px] leading-tight font-medium ${dark ? 'text-white' : 'text-black'} ${c.shape === 'circle' ? 'rounded-full' : ''}`}
                   style={{
                     left: `${c.x * fitScale}in`,
                     top: `${c.y * fitScale}in`,

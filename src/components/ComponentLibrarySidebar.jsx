@@ -23,6 +23,7 @@ function GripIcon(props) {
 const emptyDraft = {
   name: '',
   partNumber: '',
+  shape: 'rect',
   width: '',
   height: '',
   color: '#3b82f6',
@@ -33,6 +34,7 @@ const emptyDraft = {
 }
 
 function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folders }) {
+  const isCircle = draft.shape === 'circle'
   return (
     <form
       onSubmit={onSubmit}
@@ -53,30 +55,60 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
         onChange={(e) => onChange({ ...draft, partNumber: e.target.value })}
         className="w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm outline-none focus:border-blue-500"
       />
-      <div className="flex gap-2">
-        <label className="w-1/2 text-xs text-neutral-400">
-          Width (in)
+      <div className="flex overflow-hidden rounded border border-neutral-600 text-xs">
+        <button
+          type="button"
+          onClick={() => onChange({ ...draft, shape: 'rect' })}
+          className={`flex-1 py-1 font-medium ${!isCircle ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
+        >
+          Rectangle
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange({ ...draft, shape: 'circle', isRail: false, resizable: false })}
+          className={`flex-1 py-1 font-medium ${isCircle ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
+        >
+          Circle
+        </button>
+      </div>
+      {isCircle ? (
+        <label className="block text-xs text-neutral-400">
+          Diameter (in)
           <input
             type="text"
             inputMode="decimal"
-            placeholder="e.g. 3, 2 1/2, or 76mm"
+            placeholder="e.g. 1, 1/2, or 25mm"
             value={draft.width}
             onChange={(e) => onChange({ ...draft, width: e.target.value })}
             className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
           />
         </label>
-        <label className="w-1/2 text-xs text-neutral-400">
-          Height (in)
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="e.g. 3, 2 1/2, or 76mm"
-            value={draft.height}
-            onChange={(e) => onChange({ ...draft, height: e.target.value })}
-            className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
-          />
-        </label>
-      </div>
+      ) : (
+        <div className="flex gap-2">
+          <label className="w-1/2 text-xs text-neutral-400">
+            Width (in)
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g. 3, 2 1/2, or 76mm"
+              value={draft.width}
+              onChange={(e) => onChange({ ...draft, width: e.target.value })}
+              className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
+            />
+          </label>
+          <label className="w-1/2 text-xs text-neutral-400">
+            Height (in)
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g. 3, 2 1/2, or 76mm"
+              value={draft.height}
+              onChange={(e) => onChange({ ...draft, height: e.target.value })}
+              className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
+            />
+          </label>
+        </div>
+      )}
       {folders.length > 0 && (
         <label className="block text-xs text-neutral-400">
           Folder
@@ -94,23 +126,27 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
           </select>
         </label>
       )}
-      <label className="flex items-center gap-1.5 text-xs text-neutral-300">
-        <input
-          type="checkbox"
-          checked={draft.isRail}
-          onChange={(e) => onChange({ ...draft, isRail: e.target.checked })}
-        />
-        Mounting rail (e.g. DIN rail) &mdash; parts placed on it won't flag as overlapping
-      </label>
-      <label className="flex items-center gap-1.5 text-xs text-neutral-300">
-        <input
-          type="checkbox"
-          checked={draft.resizable}
-          onChange={(e) => onChange({ ...draft, resizable: e.target.checked })}
-        />
-        Resizable &mdash; drag an edge on the canvas to stretch or cut it (e.g. Panduit, DIN rail)
-      </label>
-      {draft.resizable && (
+      {!isCircle && (
+        <label className="flex items-center gap-1.5 text-xs text-neutral-300">
+          <input
+            type="checkbox"
+            checked={draft.isRail}
+            onChange={(e) => onChange({ ...draft, isRail: e.target.checked })}
+          />
+          Mounting rail (e.g. DIN rail) &mdash; parts placed on it won't flag as overlapping
+        </label>
+      )}
+      {!isCircle && (
+        <label className="flex items-center gap-1.5 text-xs text-neutral-300">
+          <input
+            type="checkbox"
+            checked={draft.resizable}
+            onChange={(e) => onChange({ ...draft, resizable: e.target.checked })}
+          />
+          Resizable &mdash; drag an edge on the canvas to stretch or cut it (e.g. Panduit, DIN rail)
+        </label>
+      )}
+      {!isCircle && draft.resizable && (
         <label className="block text-xs text-neutral-400">
           Resizable dimension &mdash; the other stays fixed (e.g. a rail's length, not its profile)
           <select
@@ -171,6 +207,7 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
     setDraft({
       name: component.name,
       partNumber: component.partNumber ?? '',
+      shape: component.shape === 'circle' ? 'circle' : 'rect',
       width: String(component.width),
       height: String(component.height),
       color: component.color,
@@ -184,18 +221,20 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
 
   function handleSubmit(e) {
     e.preventDefault()
+    const isCircle = draft.shape === 'circle'
     const width = parseDimensionToInches(draft.width)
-    const height = parseDimensionToInches(draft.height)
+    const height = isCircle ? width : parseDimensionToInches(draft.height)
     if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
 
     onUpdate(component.id, {
       name: draft.name.trim(),
       partNumber: draft.partNumber.trim(),
+      shape: draft.shape,
       width,
       height,
       color: draft.color,
-      isRail: draft.isRail,
-      resizable: draft.resizable,
+      isRail: isCircle ? false : draft.isRail,
+      resizable: isCircle ? false : draft.resizable,
       resizableAxis: draft.resizableAxis,
       folderId: draft.folderId,
     })
@@ -259,7 +298,9 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
 
       <div className="mt-1 flex items-center justify-between gap-2 pl-5">
         <span className="text-xs text-neutral-400">
-          {component.width}&Prime; &times; {component.height}&Prime;
+          {component.shape === 'circle'
+            ? <>&#8960; {component.width}&Prime;</>
+            : <>{component.width}&Prime; &times; {component.height}&Prime;</>}
         </span>
         <div className="flex shrink-0 items-center gap-1">
           <input
@@ -424,6 +465,7 @@ function isSameComponent(a, b) {
     (a.partNumber ?? '').trim().toLowerCase() === (b.partNumber ?? '').trim().toLowerCase() &&
     a.width === b.width &&
     a.height === b.height &&
+    (a.shape ?? 'rect') === (b.shape ?? 'rect') &&
     a.color === b.color &&
     Boolean(a.isRail) === Boolean(b.isRail) &&
     Boolean(a.resizable) === Boolean(b.resizable) &&
@@ -531,18 +573,20 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
 
   function handleAddSubmit(e) {
     e.preventDefault()
+    const isCircle = draft.shape === 'circle'
     const width = parseDimensionToInches(draft.width)
-    const height = parseDimensionToInches(draft.height)
+    const height = isCircle ? width : parseDimensionToInches(draft.height)
     if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
 
     onAdd({
       name: draft.name.trim(),
       partNumber: draft.partNumber.trim(),
+      shape: draft.shape,
       width,
       height,
       color: draft.color,
-      isRail: draft.isRail,
-      resizable: draft.resizable,
+      isRail: isCircle ? false : draft.isRail,
+      resizable: isCircle ? false : draft.resizable,
       resizableAxis: draft.resizableAxis,
       folderId: draft.folderId,
     })
@@ -554,6 +598,7 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
     onAdd({
       name: `${component.name} (copy)`,
       partNumber: component.partNumber ?? '',
+      shape: component.shape === 'circle' ? 'circle' : 'rect',
       width: component.width,
       height: component.height,
       color: component.color,

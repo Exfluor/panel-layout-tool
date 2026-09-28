@@ -213,7 +213,7 @@ function RailSection({ rail, mountedParts }) {
             return (
               <div
                 key={c.id}
-                className="absolute border border-black/40"
+                className={`absolute border border-black/40 ${c.shape === 'circle' ? 'rounded-full' : ''}`}
                 style={{
                   left: `${(b.x - rowX1) * scale}in`,
                   top: `${(b.y - rowY1) * scale}in`,

@@ -58,6 +58,7 @@ export function usePanelLayout(initialComponents = [], panelWidth = 0, panelHeig
           libraryComponentId: component.id ?? null,
           name: component.name,
           partNumber: component.partNumber ?? '',
+          shape: component.shape === 'circle' ? 'circle' : 'rect',
           resizable: component.resizable ?? false,
           resizableAxis: component.resizableAxis === 'height' ? 'height' : 'width',
           width: component.width,
@@ -127,11 +128,12 @@ export function usePanelLayout(initialComponents = [], panelWidth = 0, panelHeig
   // this tracking existed have no libraryComponentId and won't retroactively
   // link up.
   function syncFromLibrary(libraryComponentId, updates) {
-    const { name, partNumber, color, isRail, resizable, resizableAxis } = updates
+    const { name, partNumber, color, shape, isRail, resizable, resizableAxis } = updates
     const patch = {}
     if (name !== undefined) patch.name = name
     if (partNumber !== undefined) patch.partNumber = partNumber
     if (color !== undefined) patch.color = color
+    if (shape !== undefined) patch.shape = shape
     if (isRail !== undefined) patch.isRail = isRail
     if (resizable !== undefined) patch.resizable = resizable
     if (resizableAxis !== undefined) patch.resizableAxis = resizableAxis

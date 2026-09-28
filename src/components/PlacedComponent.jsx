@@ -65,10 +65,12 @@ export default function PlacedComponent({
   // outline/text so the part stays readable regardless of its color.
   const dark = isDarkColor(component.color)
   const textColorClass = dark ? 'text-white/90' : 'text-black/80'
+  const isCircle = component.shape === 'circle'
 
   let borderClass = dark ? 'border border-white/50' : 'border border-black/30'
   if (overlapping) borderClass = 'border-2 border-red-500'
   else if (selected) borderClass = 'border-2 border-blue-400'
+  if (isCircle) borderClass += ' rounded-full'
 
   const boxWidth = width * scale
   const boxHeight = height * scale
@@ -104,6 +106,7 @@ export default function PlacedComponent({
           component.resizable &&
           !component.locked &&
           !component.isRail &&
+          !isCircle &&
           !isDragging &&
           getResizableEdges(component).map((edge) => (
             <ResizeHandle key={edge} edge={edge} onStartResize={onStartResize(component, edge)} />

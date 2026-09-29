@@ -30,11 +30,14 @@ const emptyDraft = {
   isRail: false,
   resizable: false,
   resizableAxis: 'width',
+  text: 'LABEL',
+  fontHeight: '0.25',
   folderId: null,
 }
 
 function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folders }) {
   const isCircle = draft.shape === 'circle'
+  const isNameplate = draft.shape === 'nameplate'
   return (
     <form
       onSubmit={onSubmit}
@@ -59,7 +62,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
         <button
           type="button"
           onClick={() => onChange({ ...draft, shape: 'rect' })}
-          className={`flex-1 py-1 font-medium ${!isCircle ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
+          className={`flex-1 py-1 font-medium ${!isCircle && !isNameplate ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
         >
           Rectangle
         </button>
@@ -70,7 +73,20 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
         >
           Circle
         </button>
+        <button
+          type="button"
+          onClick={() => onChange({ ...draft, shape: 'nameplate', isRail: false, resizable: false, color: '#ffffff' })}
+          className={`flex-1 py-1 font-medium ${isNameplate ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
+        >
+          Nameplate
+        </button>
       </div>
+      {isNameplate && (
+        <p className="text-[11px] text-neutral-500">
+          Engraved acrylic &mdash; white plate, black text. Each placed nameplate gets its own
+          text, edited from the selection bar on the canvas.
+        </p>
+      )}
       {isCircle ? (
         <label className="block text-xs text-neutral-400">
           Diameter (in)
@@ -109,6 +125,31 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
           </label>
         </div>
       )}
+      {isNameplate && (
+        <div className="flex gap-2">
+          <label className="w-1/2 text-xs text-neutral-400">
+            Default text
+            <input
+              type="text"
+              placeholder="e.g. LABEL"
+              value={draft.text}
+              onChange={(e) => onChange({ ...draft, text: e.target.value })}
+              className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
+            />
+          </label>
+          <label className="w-1/2 text-xs text-neutral-400">
+            Font height (in)
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g. 0.25 or 6mm"
+              value={draft.fontHeight}
+              onChange={(e) => onChange({ ...draft, fontHeight: e.target.value })}
+              className="mt-0.5 w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-blue-500"
+            />
+          </label>
+        </div>
+      )}
       {folders.length > 0 && (
         <label className="block text-xs text-neutral-400">
           Folder
@@ -126,7 +167,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
           </select>
         </label>
       )}
-      {!isCircle && (
+      {!isCircle && !isNameplate && (
         <label className="flex items-center gap-1.5 text-xs text-neutral-300">
           <input
             type="checkbox"
@@ -136,7 +177,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
           Mounting rail (e.g. DIN rail) &mdash; parts placed on it won't flag as overlapping
         </label>
       )}
-      {!isCircle && (
+      {!isCircle && !isNameplate && (
         <label className="flex items-center gap-1.5 text-xs text-neutral-300">
           <input
             type="checkbox"
@@ -146,7 +187,7 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
           Resizable &mdash; drag an edge on the canvas to stretch or cut it (e.g. Panduit, DIN rail)
         </label>
       )}
-      {!isCircle && draft.resizable && (
+      {!isCircle && !isNameplate && draft.resizable && (
         <label className="block text-xs text-neutral-400">
           Resizable dimension &mdash; the other stays fixed (e.g. a rail's length, not its profile)
           <select
@@ -160,12 +201,14 @@ function ComponentForm({ draft, onChange, onSubmit, onCancel, submitLabel, folde
         </label>
       )}
       <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={draft.color}
-          onChange={(e) => onChange({ ...draft, color: e.target.value })}
-          className="h-7 w-9 shrink-0 cursor-pointer rounded border border-neutral-600 bg-neutral-800"
-        />
+        {!isNameplate && (
+          <input
+            type="color"
+            value={draft.color}
+            onChange={(e) => onChange({ ...draft, color: e.target.value })}
+            className="h-7 w-9 shrink-0 cursor-pointer rounded border border-neutral-600 bg-neutral-800"
+          />
+        )}
         <div className="flex flex-1 gap-1.5">
           <button
             type="submit"
@@ -207,13 +250,15 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
     setDraft({
       name: component.name,
       partNumber: component.partNumber ?? '',
-      shape: component.shape === 'circle' ? 'circle' : 'rect',
+      shape: component.shape === 'circle' ? 'circle' : component.isNameplate ? 'nameplate' : 'rect',
       width: String(component.width),
       height: String(component.height),
       color: component.color,
       isRail: component.isRail ?? false,
       resizable: component.resizable ?? false,
       resizableAxis: component.resizableAxis === 'height' ? 'height' : 'width',
+      text: component.text ?? 'LABEL',
+      fontHeight: String(component.fontHeight ?? 0.25),
       folderId: component.folderId ?? null,
     })
     setEditing(true)
@@ -222,6 +267,7 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
   function handleSubmit(e) {
     e.preventDefault()
     const isCircle = draft.shape === 'circle'
+    const isNameplate = draft.shape === 'nameplate'
     const width = parseDimensionToInches(draft.width)
     const height = isCircle ? width : parseDimensionToInches(draft.height)
     if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
@@ -229,13 +275,16 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
     onUpdate(component.id, {
       name: draft.name.trim(),
       partNumber: draft.partNumber.trim(),
-      shape: draft.shape,
+      shape: isNameplate ? 'rect' : draft.shape,
+      isNameplate,
       width,
       height,
-      color: draft.color,
-      isRail: isCircle ? false : draft.isRail,
-      resizable: isCircle ? false : draft.resizable,
+      color: isNameplate ? '#ffffff' : draft.color,
+      isRail: isCircle || isNameplate ? false : draft.isRail,
+      resizable: isCircle || isNameplate ? false : draft.resizable,
       resizableAxis: draft.resizableAxis,
+      text: isNameplate ? draft.text.trim() || 'LABEL' : undefined,
+      fontHeight: isNameplate ? parseDimensionToInches(draft.fontHeight) || 0.25 : undefined,
       folderId: draft.folderId,
     })
     setEditing(false)
@@ -288,6 +337,11 @@ function ComponentRow({ component, onUpdate, onDelete, onDuplicate, folders }) {
           {component.isRail && (
             <span className="ml-1.5 rounded bg-neutral-700 px-1 py-0.5 text-[10px] font-medium text-neutral-300">
               RAIL
+            </span>
+          )}
+          {component.isNameplate && (
+            <span className="ml-1.5 rounded bg-neutral-700 px-1 py-0.5 text-[10px] font-medium text-neutral-300">
+              PLATE
             </span>
           )}
           {component.partNumber && (
@@ -574,6 +628,7 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
   function handleAddSubmit(e) {
     e.preventDefault()
     const isCircle = draft.shape === 'circle'
+    const isNameplate = draft.shape === 'nameplate'
     const width = parseDimensionToInches(draft.width)
     const height = isCircle ? width : parseDimensionToInches(draft.height)
     if (!draft.name.trim() || !(width > 0) || !(height > 0)) return
@@ -581,13 +636,16 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
     onAdd({
       name: draft.name.trim(),
       partNumber: draft.partNumber.trim(),
-      shape: draft.shape,
+      shape: isNameplate ? 'rect' : draft.shape,
+      isNameplate,
       width,
       height,
-      color: draft.color,
-      isRail: isCircle ? false : draft.isRail,
-      resizable: isCircle ? false : draft.resizable,
+      color: isNameplate ? '#ffffff' : draft.color,
+      isRail: isCircle || isNameplate ? false : draft.isRail,
+      resizable: isCircle || isNameplate ? false : draft.resizable,
       resizableAxis: draft.resizableAxis,
+      text: isNameplate ? draft.text.trim() || 'LABEL' : undefined,
+      fontHeight: isNameplate ? parseDimensionToInches(draft.fontHeight) || 0.25 : undefined,
       folderId: draft.folderId,
     })
     setDraft(emptyDraft)
@@ -599,12 +657,15 @@ export default function ComponentLibrarySidebar({ library, onAdd, onUpdate, onDe
       name: `${component.name} (copy)`,
       partNumber: component.partNumber ?? '',
       shape: component.shape === 'circle' ? 'circle' : 'rect',
+      isNameplate: component.isNameplate ?? false,
       width: component.width,
       height: component.height,
       color: component.color,
       isRail: component.isRail ?? false,
       resizable: component.resizable ?? false,
       resizableAxis: component.resizableAxis === 'height' ? 'height' : 'width',
+      text: component.text,
+      fontHeight: component.fontHeight,
       folderId: component.folderId ?? null,
     })
   }

@@ -50,22 +50,32 @@ export default function PlacedComponent({
   const [isTruncated, setIsTruncated] = useState(false)
   const [hovered, setHovered] = useState(false)
 
+  const isCircle = component.shape === 'circle'
+  const isNameplate = Boolean(component.isNameplate)
+  // A nameplate is always the physical engraved material — white acrylic cap,
+  // black base showing through — not whatever color happens to be stored on
+  // it, so the fill/text colors below are forced rather than read from
+  // component.color.
+  const fillColor = isNameplate ? '#ffffff' : component.color
+  const displayText = isNameplate ? (component.text ?? '') : component.name
+  const fontSizePx = isNameplate ? (component.fontHeight ?? 0.25) * scale : undefined
+
   // Re-measures whenever anything that could change the box's on-screen size
   // changes — scale (zoom/resize), rotation/resize (via width/height), or the
-  // name itself — so a sliver of a cut-off word never lingers behind, and
-  // text that fits again after resizing correctly becomes visible again too.
+  // displayed text itself — so a sliver of a cut-off word never lingers
+  // behind, and text that fits again after resizing correctly becomes
+  // visible again too.
   useLayoutEffect(() => {
     const el = labelRef.current
     if (!el) return
     setIsTruncated(el.scrollWidth > el.clientWidth + 1)
-  }, [component.name, width, height, scale])
+  }, [displayText, width, height, scale, fontSizePx])
 
   // A dark fill (e.g. black) makes the default dark outline/text disappear
   // into both the component and the canvas background — switch to a light
   // outline/text so the part stays readable regardless of its color.
-  const dark = isDarkColor(component.color)
+  const dark = isDarkColor(fillColor)
   const textColorClass = dark ? 'text-white/90' : 'text-black/80'
-  const isCircle = component.shape === 'circle'
 
   let borderClass = dark ? 'border border-white/50' : 'border border-black/30'
   if (overlapping) borderClass = 'border-2 border-red-500'
@@ -93,13 +103,17 @@ export default function PlacedComponent({
           top: y * scale,
           width: boxWidth,
           height: boxHeight,
-          backgroundColor: component.color,
+          backgroundColor: fillColor,
           cursor: component.locked ? 'not-allowed' : 'grab',
           touchAction: 'none',
         }}
       >
-        <span ref={labelRef} className={`truncate px-1 ${isTruncated ? 'invisible' : ''}`}>
-          {component.name}
+        <span
+          ref={labelRef}
+          className={`truncate px-1 ${isTruncated ? 'invisible' : ''}`}
+          style={fontSizePx ? { fontSize: fontSizePx } : undefined}
+        >
+          {displayText}
         </span>
 
         {selected &&
@@ -107,6 +121,7 @@ export default function PlacedComponent({
           !component.locked &&
           !component.isRail &&
           !isCircle &&
+          !isNameplate &&
           !isDragging &&
           getResizableEdges(component).map((edge) => (
             <ResizeHandle key={edge} edge={edge} onStartResize={onStartResize(component, edge)} />
@@ -120,10 +135,10 @@ export default function PlacedComponent({
             left: x * scale + boxWidth / 2,
             top: y * scale - 4,
             transform: 'translate(-50%, -100%)',
-            backgroundColor: component.color,
+            backgroundColor: fillColor,
           }}
         >
-          {component.name}
+          {displayText}
         </div>
       )}
     </>

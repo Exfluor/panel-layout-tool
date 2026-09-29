@@ -45,6 +45,7 @@ export function usePanelLayout(initialComponents = [], panelWidth = 0, panelHeig
   function placeMultiple(component, x, y, quantity = 1) {
     const count = Math.max(1, Math.floor(quantity))
     const isRail = component.isRail ?? false
+    const isNameplate = component.isNameplate ?? false
     const ids = Array.from({ length: count }, () => crypto.randomUUID())
     const rowWidth = count * component.width
     const clampedX = panelWidth > 0 ? Math.min(Math.max(x, 0), Math.max(0, panelWidth - rowWidth)) : x
@@ -63,8 +64,11 @@ export function usePanelLayout(initialComponents = [], panelWidth = 0, panelHeig
           resizableAxis: component.resizableAxis === 'height' ? 'height' : 'width',
           width: component.width,
           height: component.height,
-          color: component.color,
+          color: isNameplate ? '#ffffff' : component.color,
           isRail,
+          isNameplate,
+          text: isNameplate ? (component.text ?? '') : undefined,
+          fontHeight: isNameplate ? (component.fontHeight ?? 0.25) : undefined,
           x: clampedX + i * component.width,
           y: clampedY,
           rotation: 0,
@@ -276,6 +280,16 @@ export function usePanelLayout(initialComponents = [], panelWidth = 0, panelHeig
     })
   }
 
+  // Updates a placed nameplate's engraved text and/or font height. Uses the
+  // raw (non-history) setter deliberately — these fields change on every
+  // keystroke as the user types, and pushing an undo entry per keystroke
+  // would flood the (small, fixed-size) history and make Ctrl+Z useless for
+  // everything else in the meantime. A free-text field not being
+  // individually undoable matches how part notes already work.
+  function updateNameplate(id, patch) {
+    setPlacedComponentsRaw((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+  }
+
   function selectByIds(ids, { additive = false } = {}) {
     setLastPlacement(null)
     setSelectedIds((prev) => {
@@ -448,6 +462,7 @@ export function usePanelLayout(initialComponents = [], panelWidth = 0, panelHeig
     moveComponentBy,
     getMovableGroupIds,
     resizeComponent,
+    updateNameplate,
     syncFromLibrary,
     anchorId,
     select,

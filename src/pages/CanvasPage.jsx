@@ -692,6 +692,8 @@ export default function CanvasPage() {
             onCopy={layout.copySelected}
             onPaste={layout.pasteClipboard}
             hasClipboard={layout.hasClipboard}
+            onEditNameplateText={(id, text) => layout.updateNameplate(id, { text })}
+            onEditNameplateFontHeight={(id, fontHeight) => layout.updateNameplate(id, { fontHeight })}
           />
 
           <PartsListPanel

@@ -694,6 +694,8 @@ export default function CanvasPage() {
             hasClipboard={layout.hasClipboard}
             onEditNameplateText={(id, text) => layout.updateNameplate(id, { text })}
             onEditNameplateFontHeight={(id, fontHeight) => layout.updateNameplate(id, { fontHeight })}
+            onAlign={layout.alignSelected}
+            onDistribute={layout.distributeSelected}
           />
 
           <PartsListPanel

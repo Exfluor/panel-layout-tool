@@ -248,6 +248,109 @@ export function usePanelLayout(initialComponents = [], panelWidth = 0, panelHeig
     })
   }
 
+  // Aligns every other selected (unlocked) component's edge/center to match
+  // the last-selected item (anchorId) along one axis — e.g. "left" moves
+  // everything else's left edge to the anchor's left edge, leaving the
+  // anchor itself untouched. Falls back to the first selected item if the
+  // anchor isn't (any longer) part of the selection.
+  function alignSelected(mode) {
+    if (selectedIds.size < 2) return
+    setLastPlacement(null)
+
+    const selected = placedComponents.filter((c) => selectedIds.has(c.id))
+    const anchor = selected.find((c) => c.id === anchorId) ?? selected[0]
+    const anchorBounds = getBounds(anchor)
+
+    function targetFor(bounds) {
+      switch (mode) {
+        case 'left':
+          return { x: anchorBounds.x }
+        case 'hcenter':
+          return { x: anchorBounds.x + anchorBounds.width / 2 - bounds.width / 2 }
+        case 'right':
+          return { x: anchorBounds.x + anchorBounds.width - bounds.width }
+        case 'top':
+          return { y: anchorBounds.y }
+        case 'vcenter':
+          return { y: anchorBounds.y + anchorBounds.height / 2 - bounds.height / 2 }
+        case 'bottom':
+          return { y: anchorBounds.y + anchorBounds.height - bounds.height }
+        default:
+          return {}
+      }
+    }
+
+    setPlacedComponents((prev) => {
+      const moved = prev.map((c) => {
+        if (!selectedIds.has(c.id) || c.locked || c.id === anchor.id) return c
+        const bounds = getBounds(c)
+        const target = targetFor(bounds)
+        const patch = {}
+        if (target.x !== undefined) {
+          patch.x =
+            panelWidth > 0 ? Math.min(Math.max(target.x, 0), Math.max(0, panelWidth - bounds.width)) : target.x
+        }
+        if (target.y !== undefined) {
+          patch.y =
+            panelHeight > 0 ? Math.min(Math.max(target.y, 0), Math.max(0, panelHeight - bounds.height)) : target.y
+        }
+        return { ...c, ...patch }
+      })
+      return moved.map((c) => {
+        if (!selectedIds.has(c.id) || c.locked || c.isRail) return c
+        const bounds = getBounds(c)
+        const rail = moved.find((other) => other.isRail && rectsOverlap(bounds, getBounds(other)))
+        return { ...c, mountedOnRailId: rail?.id ?? null }
+      })
+    })
+  }
+
+  // Evenly spaces the selected (unlocked) components along one axis,
+  // keeping the first and last (by position) fixed and adjusting the gaps
+  // between everything in between to be equal. Needs at least 3 to have a
+  // meaningful middle to redistribute.
+  function distributeSelected(axis) {
+    setLastPlacement(null)
+
+    const selected = placedComponents
+      .filter((c) => selectedIds.has(c.id) && !c.locked)
+      .map((c) => {
+        const bounds = getBounds(c)
+        return axis === 'horizontal'
+          ? { id: c.id, pos: bounds.x, size: bounds.width }
+          : { id: c.id, pos: bounds.y, size: bounds.height }
+      })
+      .sort((a, b) => a.pos - b.pos)
+    if (selected.length < 3) return
+
+    const first = selected[0]
+    const last = selected[selected.length - 1]
+    const span = last.pos - (first.pos + first.size)
+    const middleSizeSum = selected.slice(1, -1).reduce((sum, c) => sum + c.size, 0)
+    const gap = (span - middleSizeSum) / (selected.length - 1)
+
+    const targetPos = new Map()
+    let cursor = first.pos + first.size + gap
+    selected.slice(1, -1).forEach((c) => {
+      targetPos.set(c.id, cursor)
+      cursor += c.size + gap
+    })
+    if (targetPos.size === 0) return
+
+    setPlacedComponents((prev) => {
+      const moved = prev.map((c) => {
+        if (!targetPos.has(c.id)) return c
+        return axis === 'horizontal' ? { ...c, x: targetPos.get(c.id) } : { ...c, y: targetPos.get(c.id) }
+      })
+      return moved.map((c) => {
+        if (!targetPos.has(c.id) || c.isRail) return c
+        const bounds = getBounds(c)
+        const rail = moved.find((other) => other.isRail && rectsOverlap(bounds, getBounds(other)))
+        return { ...c, mountedOnRailId: rail?.id ?? null }
+      })
+    })
+  }
+
   // Applies a resize-handle drag: `effectiveRect` is the new on-screen
   // (post-rotation) box for the component — converted back to its raw
   // width/height (which swap with height/width at 90°/270°) — then rail
@@ -474,6 +577,8 @@ export function usePanelLayout(initialComponents = [], panelWidth = 0, panelHeig
     ungroupSelected,
     centerSelectedHorizontally,
     packSelectedHorizontally,
+    alignSelected,
+    distributeSelected,
     toggleLock,
     copySelected,
     pasteClipboard,

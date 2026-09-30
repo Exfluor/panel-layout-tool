@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { parseDimensionToInches } from '../lib/units'
+import AlignMenu from './AlignMenu'
 
 function FontHeightInput({ value, onCommit }) {
   const [draft, setDraft] = useState(String(value))
@@ -43,6 +44,8 @@ export default function SelectionInfoBar({
   hasClipboard,
   onEditNameplateText,
   onEditNameplateFontHeight,
+  onAlign,
+  onDistribute,
 }) {
   const selected = placedComponents.filter((c) => selectedIds.has(c.id))
   if (selected.length === 0) {
@@ -160,6 +163,13 @@ export default function SelectionInfoBar({
           >
             Pack
           </button>
+        )}
+        {selected.length > 1 && (
+          <AlignMenu
+            distributeDisabled={selected.length <= 2}
+            onAlign={onAlign}
+            onDistribute={onDistribute}
+          />
         )}
         <button
           type="button"
